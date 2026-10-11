@@ -1,0 +1,2019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>HULK RUNNER — Spider-City Dash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky1:#1b2a6b; --sky2:#4a3a8c; --sky3:#e0605f;
+    --ink:#0b0f1a; --gold:#ffd23f; --hulk:#4ce04c; --spidey:#e02b2b;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;height:100%;background:#05060d;overflow:hidden;
+    font-family:'Press Start 2P',ui-monospace,monospace;color:#fff}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  #stage{position:relative;width:100%;height:100%;max-width:1280px;max-height:720px;
+    aspect-ratio:16/9;box-shadow:0 0 0 4px #000, 0 0 60px #000 inset;background:#000;overflow:hidden}
+  canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
+
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(4,6,16,.82);backdrop-filter:blur(2px);z-index:5;padding:2.2%}
+  .hidden{display:none!important}
+  .panel{width:100%;max-width:760px;max-height:100%;overflow:auto;
+    border:4px solid #000;background:linear-gradient(#101a3a,#080b1c);
+    box-shadow:0 0 0 4px #2b3f7a, 0 10px 0 #000, 0 0 40px #000 inset;padding:18px}
+  .title{font-size:clamp(14px,3.2vw,30px);color:var(--gold);text-shadow:4px 4px 0 #000, 0 0 18px #ff9d00;
+    text-align:center;line-height:1.35;margin:6px 0 4px}
+  .sub{text-align:center;font-size:clamp(7px,1.35vw,11px);color:#8fb6ff;line-height:1.9;margin-bottom:12px}
+  .keys{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-size:clamp(6px,1.1vw,10px);margin:12px 0}
+  .keyrow{background:#0c1330;border:3px solid #23336b;padding:8px;line-height:1.8;color:#cfe0ff}
+  .keyrow b{color:var(--gold)}
+  .btn{display:block;width:100%;margin:8px 0;padding:14px 10px;font-family:inherit;cursor:pointer;
+    font-size:clamp(9px,1.6vw,14px);color:#08110a;background:var(--hulk);border:4px solid #000;
+    box-shadow:0 5px 0 #1c7a1c, 0 5px 0 4px #000;text-transform:uppercase}
+  .btn:hover{filter:brightness(1.12)}
+  .btn:active{transform:translateY(4px);box-shadow:0 1px 0 #1c7a1c,0 1px 0 4px #000}
+  .btn.alt{background:var(--gold);box-shadow:0 5px 0 #b07f00,0 5px 0 4px #000;color:#1a1200}
+  .btn.grey{background:#7f8bb5;color:#0a0d18;box-shadow:0 5px 0 #3a4468,0 5px 0 4px #000}
+  .row{display:flex;gap:8px}.row .btn{flex:1}
+  .shophead{display:flex;justify-content:space-between;align-items:center;font-size:clamp(7px,1.3vw,12px);
+    color:var(--gold);margin-bottom:10px;flex-wrap:wrap;gap:8px}
+  .item{display:flex;gap:10px;align-items:center;background:#0c1330;border:3px solid #23336b;
+    padding:10px;margin-bottom:8px}
+  .item .ic{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;background:#000;border:2px solid #33477f}
+  .item .txt{flex:1;min-width:0}
+  .item .nm{font-size:clamp(7px,1.2vw,11px);color:#fff;margin-bottom:6px}
+  .item .ds{font-size:clamp(5px,1vw,9px);color:#8fb6ff;line-height:1.7}
+  .item .lv{font-size:clamp(5px,1vw,9px);color:var(--gold);margin-top:4px}
+  .buy{font-family:inherit;cursor:pointer;font-size:clamp(6px,1.1vw,10px);padding:10px 12px;white-space:nowrap;
+    background:var(--gold);color:#1a1200;border:3px solid #000;box-shadow:0 4px 0 #8a6400}
+  .buy:active{transform:translateY(3px);box-shadow:0 1px 0 #8a6400}
+  .buy[disabled]{background:#4a5372;color:#98a2c4;box-shadow:0 4px 0 #262c44;cursor:not-allowed}
+  .buy.on{background:var(--hulk);color:#06210a;box-shadow:0 4px 0 #1c7a1c}
+  .skins{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px}
+  .skin{background:#0c1330;border:3px solid #23336b;padding:8px;text-align:center;cursor:pointer}
+  .skin.eq{border-color:var(--hulk);box-shadow:0 0 12px rgba(76,224,76,.5)}
+  .skin.lock{opacity:.72}
+  .skin canvas{width:100%;height:56px;image-rendering:pixelated}
+  .skin .sn{font-size:clamp(5px,1vw,9px);margin-top:6px;color:#dce7ff}
+  .skin .sp{font-size:clamp(5px,1vw,9px);color:var(--gold);margin-top:5px}
+  .stats{font-size:clamp(6px,1.1vw,10px);color:#9fb4e6;line-height:2;margin:10px 0;
+    display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}
+  .stats span{color:#fff}
+  .blink{animation:b 1s steps(2) infinite}@keyframes b{50%{opacity:.25}}
+  .gover{font-size:clamp(16px,4vw,38px);color:var(--spidey);text-shadow:4px 4px 0 #000,0 0 20px #ff2b2b;text-align:center}
+  #touch{position:absolute;inset:auto 0 0 0;height:38%;display:none;z-index:6;pointer-events:none}
+  #touch .pad{position:absolute;bottom:12px;display:flex;gap:10px;pointer-events:auto}
+  #touch .pad.l{left:12px}#touch .pad.r{right:12px}
+  #touch .tb{width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.12);
+    border:3px solid rgba(255,255,255,.35);color:#fff;font-family:inherit;font-size:18px;display:grid;place-items:center}
+  body.touch #touch{display:block}
+  .credit{text-align:center;font-size:clamp(4px,.9vw,8px);color:#5c6a92;margin-top:10px;line-height:1.9}
+  .pill{display:inline-block;background:#000;border:2px solid #33477f;padding:3px 6px;margin:0 2px}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <canvas id="cv" width="960" height="540"></canvas>
+
+  <!-- MENU -->
+  <div class="overlay" id="menu">
+    <div class="panel">
+      <div class="title">HULK RUNNER<br><span style="color:#e02b2b;font-size:.6em">SPIDER-CITY DASH</span></div>
+      <div class="sub">ENDLESS RUN &nbsp;•&nbsp; 3 LANES &nbsp;•&nbsp; <b style="color:#ff9f9f">ONE HIT = RUN OVER</b> &nbsp;•&nbsp; NO TIMER<br>COLLECT COINS, THEN SPEND THEM IN THE SHOP</div>
+      <div class="keys">
+        <div class="keyrow"><b>&uarr;</b> JUMP over cones &amp; barriers</div>
+        <div class="keyrow"><b>&darr;</b> DUCK under bars</div>
+        <div class="keyrow"><b>&larr;</b> MOVE left lane</div>
+        <div class="keyrow"><b>&rarr;</b> MOVE right lane</div>
+      </div>
+      <div class="sub" style="margin:0 0 10px">HULK IS ALWAYS BEHIND YOU. NO TIMER, NO LIVES &mdash; <b style="color:#ff9f9f">ONE HIT ENDS THE RUN.</b></div>
+      <button class="btn" id="btnPlay">START RUN</button>
+      <div class="row">
+        <button class="btn alt" id="btnShop">SHOP &amp; SKINS</button>
+        <button class="btn grey" id="btnHelp">HOW TO PLAY</button>
+      </div>
+      <div class="stats" id="menuStats"></div>
+      <div class="credit">ARROWS OR WASD &nbsp;•&nbsp; P = PAUSE &nbsp;•&nbsp; M = MUTE &nbsp;•&nbsp; R = RESTART</div>
+    </div>
+  </div>
+
+  <!-- SHOP -->
+  <div class="overlay hidden" id="shop">
+    <div class="panel">
+      <div class="shophead">
+        <div>SHOP</div>
+        <div>&#9733; <span id="shopCoins">0</span> COINS</div>
+      </div>
+      <div id="shopItems"></div>
+      <div class="shophead" style="margin-top:12px"><div>SUITS</div><div class="blink">EQUIP &amp; SAVE</div></div>
+      <div class="skins" id="skinList"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn alt" id="btnBack">BACK</button>
+        <button class="btn grey" id="btnReset">ERASE SAVE</button>
+      </div>
+      <div class="credit">PROGRESS SAVES AUTOMATICALLY IN YOUR BROWSER (localStorage)</div>
+    </div>
+  </div>
+
+  <!-- HELP -->
+  <div class="overlay hidden" id="help">
+    <div class="panel">
+      <div class="title" style="font-size:clamp(11px,2.4vw,20px)">HOW TO PLAY</div>
+      <div class="sub">
+        <span class="pill">&uarr; JUMP</span><span class="pill">&darr; DUCK</span><span class="pill">&larr; &rarr; LANES</span><br><br>
+        JUMP the traffic cones, concrete barriers and low walls.<br>
+        DUCK under the striped height-bars and DUMPSTER signs.<br>
+        DODGE the subway trains &mdash; they block a whole lane.<br>
+        JUMP ONTO the low wagons and ride the roof for bonus coins.<br><br>
+        <b style="color:#ff9f9f">STEEL NERVES: ONE HIT AND THE RUN IS OVER.</b><br>
+        No lives, no timer, no armour. Touch anything and you<br>
+        are sent straight back to the home page with your coins.<br>
+        Coins are banked at the end of every run, so spend them<br>
+        in the shop on SPEED, JUMP and the WEB MAGNET.
+      </div>
+      <button class="btn" id="btnHelpBack">GOT IT</button>
+    </div>
+  </div>
+
+  <!-- PAUSE -->
+  <div class="overlay hidden" id="pause">
+    <div class="panel" style="max-width:460px">
+      <div class="title" style="font-size:clamp(12px,2.6vw,22px)">PAUSED</div>
+      <div class="sub">TAKE A BREATH. HULK WILL WAIT. MAYBE.</div>
+      <button class="btn" id="btnResume">RESUME</button>
+      <button class="btn alt" id="btnQuit">QUIT TO HOME</button>
+    </div>
+  </div>
+
+  <!-- GAME OVER / RUN SUMMARY -->
+  <div class="overlay hidden" id="over">
+    <div class="panel" style="max-width:560px">
+      <div class="gover blink">RUN OVER!</div>
+      <div class="sub" id="overFlavor">SMASHED.</div>
+      <div class="stats" id="overStats"></div>
+      <div class="sub" style="color:#ffd23f;margin:6px 0 2px">YOUR COINS ARE SAFE. HEAD HOME TO SPEND THEM.</div>
+      <button class="btn" id="btnHome">&#9664; GO HOME</button>
+      <div class="row">
+        <button class="btn alt" id="btnRetry">RUN AGAIN</button>
+        <button class="btn grey" id="btnShopFromOver">SPEND COINS</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="touch">
+    <div class="pad l"><button class="tb" data-k="left">&#9664;</button><button class="tb" data-k="right">&#9654;</button></div>
+    <div class="pad r"><button class="tb" data-k="up">&#9650;</button><button class="tb" data-k="down">&#9660;</button></div>
+  </div>
+</div></div>
+
+<script>
+"use strict";
+/* ============================================================
+   HULK RUNNER — Spider-City Dash
+   Retro 8/16-bit endless 3-lane runner. Single file, no deps.
+   ============================================================ */
+
+/* ---------- boot / canvas ---------- */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+const W = cv.width, H = cv.height;
+
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => v<a?a:(v>b?b:v);
+const lerp = (a,b,t) => a+(b-a)*t;
+const rnd = (a,b) => a + Math.random()*(b-a);
+const rint = (a,b) => Math.floor(rnd(a,b+1));
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+
+/* ---------- save data ---------- */
+const SAVE_KEY = 'hulkRunner.save.v1';
+const SKINS = [
+  {id:'classic', name:'CLASSIC',  cost:0,    red:'#e02b2b', blue:'#2b4bd8', web:'#12060a', eye:'#ffffff', lens:'#e8f2ff'},
+  {id:'symbiote',name:'SYMBIOTE', cost:250,  red:'#22242e', blue:'#15161d', web:'#6e7488', eye:'#ffffff', lens:'#f2f6ff'},
+  {id:'2099',    name:'SPIDEY 2099', cost:600, red:'#0f2f6e', blue:'#0a1c46', web:'#d33a3a', eye:'#ff3b3b', lens:'#ff5555'}
+];
+
+const DEFAULT_SAVE = {
+  coins: 0,
+  best: 0,          // best distance in meters
+  bestCoins: 0,     // coins collected in a single run
+  totalRuns: 0,
+  totalCoins: 0,
+  muted: false,
+  skin: 'classic',
+  owned: ['classic'],
+  up: { speed:0, jump:0, magnet:0 }
+};
+
+function loadSave(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return structuredClone(DEFAULT_SAVE);
+    const s = JSON.parse(raw);
+    const out = structuredClone(DEFAULT_SAVE);
+    if(typeof s.coins === 'number') out.coins = Math.max(0,Math.floor(s.coins));
+    if(typeof s.best === 'number') out.best = s.best;
+    if(typeof s.bestCoins === 'number') out.bestCoins = s.bestCoins;
+    if(typeof s.totalRuns === 'number') out.totalRuns = s.totalRuns;
+    if(typeof s.totalCoins === 'number') out.totalCoins = s.totalCoins;
+    out.muted = !!s.muted;
+    if(SKINS.some(k=>k.id===s.skin)) out.skin = s.skin;
+    if(Array.isArray(s.owned)) out.owned = s.owned.filter(id=>SKINS.some(k=>k.id===id));
+    if(!out.owned.includes('classic')) out.owned.push('classic');
+    if(!out.owned.includes(out.skin)) out.skin = 'classic';
+    if(s.up && typeof s.up === 'object'){
+      for(const k of ['speed','jump','magnet']){
+        const v = Math.floor(Number(s.up[k])||0);
+        out.up[k] = clamp(isFinite(v)?v:0, 0, UPGRADES[k].max);
+      }
+    }
+    return out;
+  }catch(e){
+    console.warn('save load failed', e);
+    return structuredClone(DEFAULT_SAVE);
+  }
+}
+function persist(){
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }
+  catch(e){ console.warn('save write failed', e); }
+}
+// NOTE: S is assigned *after* UPGRADES is declared (see boot section at the
+// bottom of the file) because loadSave() validates against it. Referencing it
+// here would throw a TDZ error and silently wipe every player's progress.
+let S = structuredClone(DEFAULT_SAVE);
+
+/* ---------- upgrades ---------- */
+const UPGRADES = {
+  speed:  {name:'RUN SPEED',  max:6, icon:'SPD', desc:'Move faster = more distance, but less reaction time.', cost:l=>[80,160,280,440,660,940][l]||Infinity,
+           info:l=>'+'+Math.round((speedMult(l)-1)*100)+'% base speed'},
+  jump:   {name:'SPIDER LEGS',max:5, icon:'JMP', desc:'Higher jumps and longer hang time to clear big stuff.', cost:l=>[100,200,340,520,760][l]||Infinity,
+           info:l=>'+'+Math.round((jumpMult(l)-1)*100)+'% jump power'},
+  magnet: {name:'WEB MAGNET', max:5, icon:'MAG', desc:'Pulls nearby coins toward you so lines are easier to grab.', cost:l=>[120,240,400,600,880][l]||Infinity,
+           info:l=>l===0?'coins must be touched':('pull radius '+(magnetRadius(l)).toFixed(1)+'m')}
+};
+const speedMult = l => 1 + 0.07*l;
+const jumpMult  = l => 1 + 0.08*l;
+const magnetRadius = l => l===0 ? 0 : 0.9 + 0.75*l;
+
+/* ---------- audio (tiny synth) ---------- */
+let muted = S.muted, actx = null;
+function audio(){
+  if(muted) return null;
+  if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; } }
+  if(actx.state === 'suspended') actx.resume();
+  return actx;
+}
+function beep(freq, dur, type='square', vol=0.05, slideTo=null){
+  const a = audio(); if(!a) return;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, a.currentTime);
+  if(slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20,slideTo), a.currentTime+dur);
+  g.gain.setValueAtTime(0.0001, a.currentTime);
+  g.gain.exponentialRampToValueAtTime(vol, a.currentTime+0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime+dur);
+  o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+dur+0.02);
+}
+function noise(dur, vol=0.08, hp=400){
+  const a = audio(); if(!a) return;
+  const n = Math.floor(a.sampleRate*dur);
+  const buf = a.createBuffer(1, n, a.sampleRate);
+  const d = buf.getChannelData(0);
+  for(let i=0;i<n;i++) d[i] = (Math.random()*2-1) * (1 - i/n);
+  const src = a.createBufferSource(); src.buffer = buf;
+  const f = a.createBiquadFilter(); f.type='highpass'; f.frequency.value = hp;
+  const g = a.createGain(); g.gain.value = vol;
+  src.connect(f); f.connect(g); g.connect(a.destination); src.start();
+}
+const sfx = {
+  jump:  ()=>beep(330,.16,'square',.045,620),
+  land:  ()=>beep(150,.06,'square',.03),
+  duck:  ()=>beep(220,.07,'triangle',.035,140),
+  lane:  ()=>beep(520,.05,'square',.03,700),
+  coin:  ()=>{beep(1046,.06,'square',.05); setTimeout(()=>beep(1568,.10,'square',.045),55);},
+  hit:   ()=>{noise(.28,.11,300); beep(180,.3,'sawtooth',.06,60);},
+  over:  ()=>{[440,392,330,262,196].forEach((f,i)=>setTimeout(()=>beep(f,.28,'square',.06),i*130));},
+  buy:   ()=>{[660,880,1320].forEach((f,i)=>setTimeout(()=>beep(f,.12,'square',.05),i*80));},
+  ui:    ()=>beep(660,.05,'square',.03)
+};
+
+/* ---------- world constants ---------- */
+// CAMERA: an oblique overhead view. The eye is raised high above the street
+// looking down at a steep angle, so the road reads as a wide, gently converging
+// ribbon and you look down on the action. Actors stay close to full size so the
+// art is always legible - only the GROUND foreshortens.
+//
+// PLAYER_SPR is the character's height in PIXELS. Everything else derives from
+// it so the world stays physically consistent: a cone is knee-high, a wall is
+// chest-high and a subway car dwarfs you.
+const PLAYER_SPR = 292;                  // px tall -> ~54% of screen height
+const PX_PER_UNIT = PLAYER_SPR / 2.45;   // ~119 px per world unit of height
+// The sprite art is authored in small units (the body spans ~33 of them), so it
+// must be multiplied by this to actually stand PLAYER_SPR pixels tall. MEASURED,
+// not guessed: 33 base units -> 2.45 world units.
+const SPRITE_BOOST = 12.1;
+const OBST_K = 19;                       // the art's internal units per world
+                                         // unit; calibrated so every drawn height
+                                         // equals its collision height
+// How much ground is on screen: everything nearer than Z_MAX is visible and
+// everything beyond it has passed the horizon. A *small* Z_MAX is what makes the
+// overhead view readable - a long track would squash into a thin band at the top.
+const Z_MAX = 320;                       // how much track is on screen
+const HORIZON = 80;                      // road ribbon converges here
+const PLAYER_Z = 0;
+const ROAD_BOT = 540;                    // road y at z=0 (the player's feet line)
+// GROUND pixels per world unit of DEPTH, and of HEIGHT separately. Depth is the
+// compressed axis in an overhead shot, but it still has to move FAST enough to
+// read: at this ratio the world rushes past at roughly a third of a screen a
+// second, which is what actually sells the speed.
+const GROUND_PX = (ROAD_BOT - HORIZON)/Z_MAX;   // ~1.44 px per unit of depth
+const V_NEAR = 1.0, V_FAR = 0.66;        // upright scale: same at any depth, but
+                                         // foreshortened slightly far away
+const LANE_W = 1.45;
+const LANE_PX = 190;                     // screen gap between lanes
+const LANES = [-1,0,1];
+const GRAV = -14.5;                      // tuned with JUMP_V so the arc tops out at
+const JUMP_V = 8.8;                      // ~2.67 units = 318px, a full body height
+const WORLD_UNITS_PER_M = 1.4;
+// Overhead duck bars: one definition shared by the hitbox AND the art so the
+// two can never drift apart. Must stay inside the standing body (2.45).
+const BAR_BOTTOM = 1.86;
+const BAR_TOP    = 2.45;
+// The Hulk is cosmetic now - there is no timer at all. He hovers behind you and
+// lurches forward when you stumble, but he can never end the run.
+const HULK_GAP_START = 120;
+const HULK_GAP_MAX = 160;
+
+// Depth factor for upright art: full size at the player, easing to V_FAR.
+function depthK(z){ return V_NEAR + (V_FAR - V_NEAR)*clamp(z/Z_MAX, 0, 1); }
+function roadHalf(){ return LANE_W*1.5 + 0.35; }
+// Lateral pixel scale: everything on the ground plane uses this, so the road,
+// the kerb, the lamps and the building line can never drift out of agreement.
+function LPX(){ return LANE_PX/LANE_W; }
+function lateral(xw){ return W/2 + xw*LPX(); }
+function projX(xw, z){ return lateral(xw); }   // no convergence overhead
+// Overhead mapping: depth is a straight vertical run from the horizon to the
+// player's feet, and a point at world height yw is lifted above that line.
+function projY(yw, z){
+  const ground = ROAD_BOT - clamp(z, -60, Z_MAX)*GROUND_PX;
+  return ground - yw*PX_PER_UNIT*depthK(z);
+}
+
+/* ---------- game state ---------- */
+const G = {
+  state:'menu',            // menu | playing | paused | dead
+  t:0, dist:0, runCoins:0, coinStreak:0,
+  obstacleTimer:0, coinTimer:0, decorTimer:0,
+  stumbleTimer:0, iframes:0,
+  hulkGap:HULK_GAP_START, maxGap:HULK_GAP_MAX, catchMeter:1,
+  shake:0, flash:0, combo:1, comboTimer:0,
+  nextSpawn:60, lastLane:0
+};
+const player = { lane:0, xw:0, targetX:0, y:0, vy:0, onGround:true, ducking:false, coyote:0, stumble:0, dead:false };
+let obstacles = [], coins = [], fx = [], buildings = [], props = [];
+
+/* ---------- run control ---------- */
+function P(){ return S.up ? S.up : DEFAULT_SAVE.up; }
+function baseSpeed(){ return 24.0 * speedMult(S.up.speed); }
+function jumpPower(){ return JUMP_V * jumpMult(S.up.jump); }
+
+function resetRun(){
+  G.state='playing'; G.t=0; G.dist=0; G.runCoins=0; G.coinStreak=0;
+  G.obstacleTimer=.7; G.coinTimer=.9; G.decorTimer=0;
+  G.stumbleTimer=0; G.iframes=0;
+  G.hulkGap=HULK_GAP_START; G.shake=0; G.flash=0; G.combo=1; G.comboTimer=0;
+  G.nextSpawn=70; G.lastLane=0;
+  player.lane=0; player.xw=0; player.targetX=0; player.y=0; player.vy=0;
+  player.onGround=true; player.ducking=false; player.stumble=0; player.dead=false;
+  obstacles.length=0; coins.length=0; fx.length=0; props.length=0;
+  buildSkyline();
+  for(let i=0;i<9;i++) spawnCoinLine(rnd(30,240), rint(0,2), true);
+}
+
+function buildSkyline(){
+  buildings.length=0;
+  for(const side of [-1,1]){
+    let z=-200;
+    while(z < 520){
+      const w = rnd(3.0,6.4), h = rnd(4,15), d = rnd(5,9);
+      buildings.push({side, z, w, h, d, tone: Math.random(), win: Math.random()});
+      z += d + rnd(1.4,4.6);
+    }
+  }
+}
+
+/* ---------- spawning ---------- */
+function spawnObstacle(z){
+  // returns array of obstacles filling a spawn row
+  const lanesFree = [0,1,2];
+  const shapeRoll = Math.random();
+  const made = [];
+
+  // Trains: both kinds block their whole lane, but a FLATCAR roof is low enough
+  // to jump onto, so it doubles as a moving platform you can run along.
+  if(shapeRoll < 0.26){
+    const lane = rint(0,2);
+    const kind = Math.random() < 0.45 ? 'flatcar' : 'train';
+    // length multiplier: a subway car is ~2x a wagon long along the track
+    made.push(mkObst(kind, lane, z, kind==='train' ? rnd(1.6,2.2) : rnd(1.8,3.0)));
+    lanesFree.splice(lanesFree.indexOf(lane),1);
+    if(Math.random()<0.5){
+      const l2 = pick(lanesFree);
+      made.push(mkObst('cone', l2, z + 7, 0.9));
+    }
+    return made;
+  }
+
+  // how many of the 3 lanes get blocked
+  const nBlock = Math.random()<0.34 ? 2 : 1;   // two lanes only 1 time in 3
+  const chosen = [];
+  for(let i=0;i<nBlock && lanesFree.length;i++){
+    const idx = rint(0, lanesFree.length-1);
+    chosen.push(lanesFree.splice(idx,1)[0]);
+  }
+  for(const lane of chosen){
+    const r = Math.random();
+    let kind;
+    if(r < 0.34) kind='cone';
+    else if(r < 0.55) kind='barrier';
+    else if(r < 0.72) kind='bar';       // duck
+    else if(r < 0.87) kind='sign';      // duck
+    else kind='wall';                   // jump (tall-ish)
+    const spread = (nBlock>1) ? rnd(0,1.6) : 0;
+    made.push(mkObst(kind, lane, z + spread, 1));
+  }
+  return made;
+}
+// h = height you must get your feet above (jump) ; duck =true means the object
+// hangs overhead so you must instead get your head DOWN (duck) under it.
+// board = you can land on top of it and run along the roof (multilevel!).
+// solid = completely unjumpable, must change lane.
+const KIND = {
+  cone:    {duck:false, w:1.00, h:1.15, d:0.85, hit:0.30, name:'cone'},
+  barrier: {duck:false, w:1.30, h:1.05, d:0.75, hit:0.24, name:'barrier'},
+  wall:    {duck:false, w:1.30, h:1.70, d:1.00, hit:0.22, name:'wall'},
+  bar:     {duck:true,  w:1.40, h:0.60, d:1.00, hit:0.30, name:'bar'},
+  sign:    {duck:true,  w:1.35, h:0.64, d:1.10, hit:0.30, name:'sign'},
+  train:   {duck:false, w:1.40, h:3.60, d:3.20, hit:0.40, solid:true, name:'train'},
+  flatcar: {duck:false, w:1.36, h:1.35, d:3.00, hit:0.34, board:true, name:'flatcar'}
+};
+// `mul` is the LENGTH multiplier (how long the thing is along the track). Size
+// multipliers must never touch h on a rideable wagon or the deck height warps
+// and it stops being landable - height only scales for the small jump objects.
+function mkObst(kind, lane, z, mul){
+  const k = KIND[kind];
+  const sizeKinds = !(k.solid || k.board);      // cones, barriers, walls, bars
+  return {
+    kind, lane, z,
+    w: k.w * (sizeKinds ? clamp(mul,0.7,1.6) : 1),
+    h: k.h * (sizeKinds ? clamp(mul,0.7,1.6) : 1),
+    d: k.d * clamp(mul, 0.8, 3.0),
+    hitPenalty: k.hit*(mul>1.2?1.25:1),
+    lenMul: mul,
+    passed:false, hitAnim:0
+  };
+}
+function spawnCoinLine(z, lane, forceJump){
+  const n = rint(4,7);
+  const arc = forceJump || Math.random()<0.33;
+  const gap = 1.5;
+  for(let i=0;i<n;i++){
+    const y = arc ? 0.75 + Math.sin(i/(n-1)*Math.PI)*1.45 : 1.15;
+    coins.push({lane, z: z + i*gap, y, taken:false, t:Math.random()*6, spin:rnd(0,6)});
+  }
+}
+// is `lane` clear of obstacles over the z-span [z0,z1]?
+function laneClear(lane, z0, z1){
+  for(const o of obstacles){
+    if(o.lane !== lane) continue;
+    const half = Math.min(o.d,1.5)*0.5 + 1.0;
+    if(o.z + half > z0 && o.z - half < z1) return false;
+  }
+  return true;
+}
+
+/* ---------- input ---------- */
+const keys = {};
+function setKey(e, down){
+  const k = e.key;
+  const code = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',
+                w:'up',s:'down',a:'left',d:'right',W:'up',S:'down',A:'left',D:'right'}[k];
+  if(code){ e.preventDefault(); if(down) press(code); return; }
+  if(!down) return;
+  if(k==='p'||k==='P'){ togglePause(); }
+  else if(k==='m'||k==='M'){ toggleMute(); }
+  else if(k==='r'||k==='R'){ if(G.state==='playing'||G.state==='dead') startRun(); }
+  else if(k==='Escape'){ if(G.state==='playing') togglePause(); }
+  else if(k===' '||k==='Enter'){
+    e.preventDefault();
+    if(G.state==='menu') startRun();
+    else if(G.state==='dead') startRun();
+  }
+}
+document.addEventListener('keydown', e=>setKey(e,true));
+document.addEventListener('keyup',   e=>setKey(e,false));
+window.addEventListener('blur', ()=>{ for(const k in keys) keys[k]=false; if(G.state==='playing') togglePause(); });
+
+function press(code){
+  keys[code]=true;
+  if(G.state!=='playing') return;
+  if(code==='left')  moveLane(-1);
+  if(code==='right') moveLane(1);
+  if(code==='up')    doJump();
+  if(code==='down')  doDuck();
+}
+function release(code){ keys[code]=false; }
+
+// What is the player standing on right now? 0 = tarmac, otherwise the roof of
+// a rideable low car they are currently on top of. Re-checked every frame, so
+// when a car rolls out from under them they simply start falling.
+function standingHeight(){
+  const footClear = player.y + 0.60;
+  // Tolerance grows with fall speed: at 12 u/s you drop ~0.2 per frame, so a
+  // fixed window would let a fast fall tunnel straight through the roof. This
+  // is the classic platformer "snap to ledge" trick, and it is what makes
+  // landing on a wagon feel intentional instead of pixel-perfect.
+  const tol = 0.34 + Math.max(0, -player.vy)*0.030;
+  let best = 0;
+  for(const o of obstacles){
+    if(!KIND[o.kind].board) continue;
+    if(o.lane !== player.lane) continue;
+    if(Math.abs(o.z - PLAYER_Z) > Math.min(o.d,3.4)*0.5 + 0.45) continue;
+    // mount it if the feet already clear its roof (or are within tolerance)
+    if(footClear >= o.h - tol && o.h > best) best = o.h;
+  }
+  return best;
+}
+
+/* ---------- movement ---------- */
+function moveLane(dir){
+  const nl = player.lane + dir;
+  if(nl < -1 || nl > 1){ sfx.ui(); return; }
+  if(!player.onGround) return;          // no mid-air lane swaps
+  player.lane = nl;
+  player.targetX = nl * LANE_W;
+  G.lastLane = nl;
+  sfx.lane();
+  puff(projX(player.targetX,PLAYER_Z), projY(0,PLAYER_Z), '#cfe0ff', 5);
+}
+function doJump(){
+  if(!player.onGround) return;
+  if(player.ducking) player.ducking=false;
+  player.vy = jumpPower();
+  player.onGround = false;
+  sfx.jump();
+  puff(projX(player.xw,PLAYER_Z), projY(0,PLAYER_Z), '#ffffff', 7);
+}
+function doDuck(){
+  if(player.onGround){ player.ducking = true; sfx.duck(); }
+  else { player.vy = Math.min(player.vy, -3.0); }  // fast-fall
+}
+
+/* ---------- particles ---------- */
+function puff(x,y,color,n,spread=2.4){
+  for(let i=0;i<n;i++) fx.push({x,y,vx:rnd(-spread,spread),vy:rnd(-spread*0.6,spread*0.6),
+    life:rnd(.25,.5), t:0, color, s:rnd(2,5), kind:'puff'});
+}
+function sparkle(x,y){
+  for(let i=0;i<8;i++) fx.push({x,y,vx:rnd(-3,3),vy:rnd(-4,1),life:rnd(.3,.6),t:0,color:'#ffd23f',s:rnd(2,5),kind:'star'});
+}
+function popText(x,y,txt,color){ fx.push({x,y,vx:0,vy:-1.2,life:.9,t:0,color,txt,kind:'text'}); }
+
+/* ---------- updates ---------- */
+function update(dt){
+  G.t += dt;
+  if(G.flash>0) G.flash = Math.max(0, G.flash - dt*3.2);
+  if(G.shake>0) G.shake = Math.max(0, G.shake - dt*2.6);
+  if(G.comboTimer>0){ G.comboTimer -= dt; if(G.comboTimer<=0) G.combo=1; }
+
+  // ---- speed & distance
+  const stumbleFactor = G.stumbleTimer>0 ? 0.55 : 1;
+  // Endless ramp: with no timer, speed is what makes a long run harder. It
+  // climbs from 1.0 to 1.6x over the first ~4km and then holds.
+  const ramp = 1 + 0.35*clamp(G.dist/(6000*WORLD_UNITS_PER_M), 0, 1);
+  const speed = baseSpeed()*stumbleFactor*ramp;
+  const dz = speed*dt;
+  G.dist += dz;
+  const meters = G.dist / WORLD_UNITS_PER_M;
+  const spdRatio = speed / 24.0;      // 1.0 at base speed, grows with upgrades
+
+  // ---- lateral movement
+  player.xw = lerp(player.xw, player.targetX, 1 - Math.pow(0.0009, dt));
+  if(Math.abs(player.xw - player.targetX) < 0.01) player.xw = player.targetX;
+
+  // ---- vertical movement (with multilevel platforms: low cars, ledges)
+  // Coyote time makes running off the back of a car forgiving, and support is
+  // re-evaluated every frame so the floor genuinely vanishes beneath you.
+  if(player.onGround) player.coyote = 0.12; else player.coyote = Math.max(0, (player.coyote||0)-dt);
+  player.vy += GRAV*dt;
+  player.y  += player.vy*dt;
+  const floor = standingHeight(dt);
+  if(player.y <= floor && player.vy <= 0){
+    const impact = player.vy;
+    if(!player.onGround && impact < -4){
+      sfx.land();
+      puff(projX(player.xw,PLAYER_Z), projY(player.y,PLAYER_Z), '#b9c9ef', 6);
+    }
+    player.y = floor; player.vy = 0; player.onGround = true;
+  } else {
+    player.onGround = false;
+  }
+  if(player.ducking && !keys['down'] && player.onGround) player.ducking=false;
+  if(G.stumbleTimer>0) G.stumbleTimer = Math.max(0, G.stumbleTimer-dt);
+  if(G.iframes>0) G.iframes = Math.max(0, G.iframes-dt);
+
+  // ---- move the world toward the camera
+  for(const o of obstacles){
+    o.z -= dz;
+    if(o.hitAnim>0) o.hitAnim=Math.max(0,o.hitAnim-dt*2);
+  }
+  for(const c of coins){
+    c.z -= dz; c.t += dt*6; c.spin += dt*4;
+  }
+
+  // ---- spawn obstacles: distance-based rows (difficulty ramps with speed)
+  G.nextSpawn -= dz;
+  if(G.nextSpawn <= 0){
+    const spawned = spawnObstacle(315);
+    obstacles.push(...spawned);
+    // never let coins sit inside the rows we just placed
+    for(const so of spawned){
+      const half = Math.min(so.d,3.4)*0.5 + 1.2;
+      coins = coins.filter(c => !(c.lane===so.lane && c.z > so.z-half && c.z < so.z+half));
+    }
+    const spd = baseSpeed();
+    // Row spacing scales with speed so the TIME between rows, and therefore the
+    // difficulty, stays fixed while the world rushes past faster.
+    const gapBase = 76 + 50*(spd/24.0);   // ~3.2s between rows at any speed
+    G.nextSpawn = gapBase * rnd(0.88,1.26) * (G.t<8 ? 1.3 : 1);
+  }
+
+  // ---- spawn coins only into lanes that stay clear
+  G.coinTimer -= dt;
+  if(G.coinTimer <= 0){
+    G.coinTimer = rnd(1.0,2.0);
+    const cands = LANES.filter(l => laneClear(l, 312, 315 + 7*1.5 + 2));
+    if(cands.length){
+      spawnCoinLine(315, pick(cands), Math.random()<0.28);
+    }
+  }
+
+  // ---- magnet + coin pickup
+  const mr = magnetRadius(S.up.magnet);
+  const pHeadY = player.y + (player.ducking?0.5:1.0);
+  for(const c of coins){
+    if(c.taken) continue;
+    if(mr>0 && c.z < 26 && c.z > -3){
+      const dx = (player.lane - c.lane)*LANE_W + (player.xw - c.lane*LANE_W);
+      const distTo = Math.hypot(dx, c.z - PLAYER_Z, c.y - pHeadY);
+      if(distTo < mr){
+        c.z  = lerp(c.z, PLAYER_Z+0.4, 1-Math.pow(0.02,dt));
+        c.y  = lerp(c.y, pHeadY, 1-Math.pow(0.02,dt));
+        c.lane = player.lane;
+      }
+    }
+    if(c.z < 3.0 && c.z > -1.6 && !c.taken){
+      const dx = Math.abs(player.xw - c.lane*LANE_W);
+      if(dx < 0.95){
+        const py0 = player.y, py1 = player.y + (player.ducking?1.3:2.4);
+        if(c.y > py0-0.5 && c.y < py1+0.5){
+          c.taken = true;
+          G.runCoins++; G.coinStreak++; S.totalCoins++;
+          if(G.coinStreak>0 && G.coinStreak%12===0){ G.combo = Math.min(5,G.combo+1); G.comboTimer=4; popText(projX(player.xw,0), projY(0,0)-70, 'x'+G.combo+' COMBO', '#ffd23f'); }
+          sfx.coin();
+          sparkle(projX(c.lane*LANE_W, c.z), projY(c.y, c.z));
+        }
+      }
+    }
+    // missed coin resets streak
+    if(!c.taken && c.z < -2.2 && c.z > -2.6) G.coinStreak = 0;
+  }
+  coins = coins.filter(c => c.z > -30 && !c.taken);
+
+  // ---- collisions with obstacles
+  //
+  // Height model, read this before touching it:
+  //   player is 2.45m standing / 1.30m ducking, feet at player.y
+  //   footClear = feet + 0.60 lets the legs pass through low objects
+  //   JUMP objects (cone/barrier/wall/flatcar) are escaped by lifting the FEET
+  //   the tall subway train can never be jumped - it must be dodged
+  //   DUCK objects hang overhead, so they are escaped by getting pTop DOWN
+  //   landing on a low car is a legitimate "multilevel" move: if the feet are
+  //   at or above its roof you mount it (see standingHeight) instead of dying
+  //
+  if(G.iframes<=0 && G.stumbleTimer<=0){
+    const pTop      = player.y + (player.ducking ? 1.30 : 2.45);
+    const footClear = player.y + 0.60;
+    for(const o of obstacles){
+      // forgiving depth window (obstacle counts as thinner than it draws)
+      if(Math.abs(o.z - PLAYER_Z) > Math.min(o.d, 3.4)*0.5 + 0.45) continue;
+      if(o.lane !== player.lane) continue;
+      const k = KIND[o.kind];
+      if(k.duck){
+        // The bar is a solid band floating at BAR_BOTTOM..BAR_TOP. Any vertical
+        // overlap with the player's body is a hit, so the only reliable way
+        // through is to duck (1.30 tall, passes clean under). Its `h` is the
+        // band thickness, NOT its elevation - do not compare against it here.
+        if(pTop > BAR_BOTTOM && player.y < BAR_TOP){ o.hitAnim=1; onHit(o); break; }
+      }else if(k.board){
+        // Rideable wagon. It is an OPEN flatbed, so the only thing that can hit
+        // you is its front wall - and at 20 u/s a full jump carries you right
+        // over the whole car, so "did my feet clear the deck" is the wrong
+        // test. Timing decides it:
+        //   feet well above the deck  -> land on the roof and ride it
+        //   feet below the deck while falling -> smack down on top (bounce up)
+        //   running at it on the ground -> slam the front wall
+        const airHeight = footClear - o.h;
+        // (mounting is rewarded once per wagon, see below)
+        if(airHeight < 0){
+          if(!player.onGround && player.vy <= 0.05 && player.y > o.h - 0.85){
+            // you had the height but mistimed the drop: drop onto the roof
+            player.y = o.h; player.vy = 0; player.onGround = true;
+            puff(projX(player.xw,PLAYER_Z), projY(player.y,PLAYER_Z), '#b9c9ef', 6);
+            sfx.land();
+            if(!o.mounted){
+              o.mounted = true;
+              G.hulkGap = Math.min(G.maxGap, G.hulkGap + 2.0);
+              popText(projX(player.xw,PLAYER_Z), projY(player.y,PLAYER_Z)-40, 'ROOFTOP!', '#8fd6ff');
+              // coin bonus riding the roof, so the multilevel line pays off
+              for(let c2=0;c2<3;c2++){
+                coins.push({lane:player.lane, z:o.z - 1.0 + c2*1.3, y:o.h+1.05,
+                            taken:false, t:Math.random()*6, spin:rnd(0,6)});
+              }
+            }
+          }else{
+            o.hitAnim = 1; onHit(o); break;
+          }
+        }
+      }else if(k.solid){
+        o.hitAnim = 1; onHit(o); break;            // unjumpable
+      }else{
+        if(footClear < o.h - 0.10){ o.hitAnim=1; onHit(o); break; }
+      }
+    }
+  }
+
+  // ---- passed obstacles
+  for(const o of obstacles){
+    if(!o.passed && o.z < PLAYER_Z - o.d/2 - 0.4){
+      o.passed = true;
+      const bonus = o.kind==='train' ? 4 : o.kind==='flatcar' ? 2 : 0;
+      G.hulkGap = Math.min(HULK_GAP_MAX, G.hulkGap + 1.5 + bonus);
+    }
+  }
+  obstacles = obstacles.filter(o => o.z > -40);
+
+  // ---- Hulk: pure menace, no timer. He drifts back to his usual distance and
+  // lunges forward while you are stumbling, but he can never end your run.
+  const target = HULK_GAP_START * (G.stumbleTimer > 0 ? 0.45 : 1);
+  G.hulkGap += (target - G.hulkGap) * Math.min(1, dt * (G.stumbleTimer > 0 ? 3.4 : 0.7));
+  G.hulkGap = clamp(G.hulkGap, 4, HULK_GAP_MAX);
+  G.catchMeter = clamp(G.hulkGap / HULK_GAP_MAX, 0, 1);
+
+  // ---- particles
+  for(const p of fx){
+    p.t += dt;
+    if(p.kind==='text'){ p.y += p.vy*dt*60; p.x += p.vx*dt*60; }
+    else { p.x += p.vx*dt*60; p.y += p.vy*dt*60; p.vy += 14*dt; }
+  }
+  fx = fx.filter(p => p.t < p.life);
+
+  // ---- danger vignette
+  if(G.catchMeter < 0.34) G.flash = Math.max(G.flash, (0.34-G.catchMeter)*2.4);
+}
+
+// ONE hit ends the run. No armour, no second chance - the whole game is "do not
+// touch anything". The coins you collected on the way are banked immediately so
+// the end screen can show what you earned.
+function onHit(o){
+  const kindName = KIND[o.kind].name;
+  sfx.hit();
+  G.shake = 1.6;
+  G.flash = 1.0;
+  G.stumbleTimer = 0.5;
+  puff(projX(player.xw,PLAYER_Z), projY(player.y+0.8,PLAYER_Z), '#ff5252', 22, 6);
+  popText(projX(player.xw,PLAYER_Z), projY(player.y+2.2,PLAYER_Z),
+          kindName==='train' ? 'SMASHED!' : 'HIT!', '#ff5252');
+  gameOver(kindName);
+}
+
+function gameOver(hitBy){
+  if(G.state !== 'playing') return;
+  G.state='dead';
+  player.dead = true;
+  sfx.over();
+
+  const meters  = Math.floor(G.dist / WORLD_UNITS_PER_M);
+  const earned  = G.runCoins;
+  const newBest = meters > S.best;
+  if(newBest) S.best = meters;
+  if(earned > S.bestCoins) S.bestCoins = earned;
+  S.coins += earned;            // coins are collected the moment the run ends
+  S.totalRuns++;
+  persist();
+
+  $('overFlavor').textContent =
+    'YOU CLIPPED A ' + String(hitBy||'OBSTACLE').toUpperCase() + '. ONE HIT AND THE RUN IS OVER.';
+  $('overStats').innerHTML =
+    `DISTANCE <span>${meters} m${newBest?' &nbsp;&#9733; NEW BEST':''}</span>` +
+    `<span style="text-align:right">BEST <span>${S.best} m</span></span>` +
+    `COINS COLLECTED <span style="color:#ffd23f">+${earned}</span>` +
+    `<span style="text-align:right">BANK <span>${S.coins}</span></span>`;
+  show('over');
+}
+
+function togglePause(){
+  if(G.state==='playing'){ G.state='paused'; show('pause'); sfx.ui(); }
+  else if(G.state==='paused'){ G.state='playing'; hideAll(); sfx.ui(); }
+}
+function toggleMute(){
+  muted = !muted; S.muted = muted; persist();
+  popText(W/2, 86, muted?'SOUND OFF':'SOUND ON', '#8fb6ff');
+}
+
+/* ---------- drawing helpers ---------- */
+function px(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y),Math.ceil(w),Math.ceil(h)); }
+
+function skyGradient(){
+  const g = ctx.createLinearGradient(0,0,0,HORIZON+40);
+  g.addColorStop(0,'#150f3d'); g.addColorStop(.45,'#2c2a72'); g.addColorStop(.78,'#7b3b8f'); g.addColorStop(1,'#e0685f');
+  return g;
+}
+let stars = [];
+for(let i=0;i<90;i++) stars.push({x:Math.random()*W, y:Math.random()*HORIZON*0.86, s:Math.random()<0.8?2:3, tw:Math.random()*6});
+
+function drawSky(){
+  ctx.fillStyle = skyGradient(); ctx.fillRect(0,0,W,HORIZON+6);
+  const d = G.dist;
+  for(const s of stars){
+    const tw = 0.45 + 0.55*Math.abs(Math.sin(G.t*2 + s.tw));
+    px(s.x - (d*0.02)%W, s.y, s.s, s.s, `rgba(255,255,255,${tw*0.85})`);
+  }
+  // moon
+  const mx = W*0.80, my = HORIZON*0.30;
+  px(mx-26,my-26,52,52,'#fdf3cf'); px(mx-20,my-32,40,64,'#fdf3cf'); px(mx-32,my-20,64,40,'#fdf3cf');
+  px(mx-10,my-12,10,10,'#e8d9a8'); px(mx+8,my+6,12,12,'#e8d9a8'); px(mx-2,my+16,8,8,'#e8d9a8');
+  // three parallax bands of skyline: the deep city, then closer packed blocks.
+  // Each band scrolls at its own rate, which is what gives the "sprawling
+  // metropolis" depth instead of a single flat row of boxes.
+  drawSkylineBand(0.05, 0.34, 118, HORIZON+2, '#1a1246', 0.00);
+  drawSkylineBand(0.13, 0.28, 88,  HORIZON+6, '#221758', 0.55);
+}
+
+// rnd in [0,1) from an integer seed - lets the skyline and street furniture be
+// laid out deterministically yet still look irregular
+function hash01(n){ const x = Math.sin(n*127.1 + 311.7)*43758.5453; return x - Math.floor(x); }
+
+function drawSkylineBand(par, heightFrac, bw, baseY, color, litFrac){
+  const d = G.dist*par, shift = ((d % W) + W) % W;
+  ctx.fillStyle = color;
+  const n = Math.ceil(W/bw) + 2;
+  for(let i=-1;i<n;i++){
+    const seed = i + Math.floor(d/W)*(n);
+    const h = bw*(0.7 + hash01(seed)*2.4)*heightFrac*4;
+    const bh = Math.min(h, HORIZON*0.92);
+    const x  = i*bw - shift;
+    if(x > W || x + bw < 0) continue;          // off-screen tower
+    ctx.fillRect(Math.round(x), Math.round(baseY-bh), Math.ceil(bw)-1, Math.ceil(bh));
+    // a few lit windows so the towers read as inhabited
+    if(litFrac > 0){
+      const cols = Math.max(2, Math.floor(bw/9)), rows = Math.max(3, Math.floor(bh/13));
+      for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+        if(hash01(seed*31 + r*7 + c*3) > 0.80){
+          ctx.fillStyle = `rgba(255,206,110,${0.35 + hash01(seed+r+c)*0.5})`;
+          ctx.fillRect(x + 3 + c*(bw-4)/cols, baseY-bh + 4 + r*(bh-6)/rows, 3, 4);
+          ctx.fillStyle = color;
+        }
+      }
+    }
+  }
+  // shared base shadow so the band sits on the horizon
+  ctx.fillStyle = color;
+}
+
+function drawBuildings(){
+  const sorted = buildings.slice().sort((a,b)=> b.z - a.z);
+  for(const b of sorted){
+    const pz = b.z;
+    const s = depthK(pz);
+    if(s <= 0.02) continue;
+    // Block line placed directly in SCREEN space and clamped: a tower's centre
+    // sits just outside its kerb, and can never drift so far out that it leaves
+    // the frame. Solving this in world units fought the lateral scale.
+    const gx = clamp(W/2 + b.side*(250 + b.w*7), 46, W-46);
+    const gy = projY(0, pz);
+    const bw = b.w*s, bh = b.h*s, bd = b.d*s;
+    if(gy < HORIZON-4) continue;
+    // front face
+    const shade = 0.5 + b.tone*0.5;
+    const c1 = `rgb(${Math.round(38*shade+14)},${Math.round(36*shade+18)},${Math.round(78*shade+30)})`;
+    // Skip the whole building if it is effectively a sliver on screen: an
+    // overhead shot has a lot of towers in view and they are the single
+    // biggest cost in the frame.
+    if(bw < 6 || bh < 6) continue;
+    px(gx-bw/2, gy-bh, bw, bh, c1);
+    // roof / depth
+    px(gx-bw/2, gy-bh-bd*0.42, bw, bd*0.42, '#241a52');
+    // side face
+    px(b.side<0 ? gx-bw/2-bd*0.42 : gx+bw/2, gy-bh, bd*0.42, bh+bd*0.1, '#1a1440');
+    // Windows. The lit pattern is decided ONCE per building and kept, instead
+    // of re-rolled every frame - the flicker that remains is deliberate, and
+    // the saved work matters because this loop dominates the draw calls.
+    const cols = clamp(Math.floor(b.w*1.1), 2, 5);
+    const rows = clamp(Math.floor(b.h*1.4), 3, 6);
+    if(!b.lit) b.lit = new Array(cols*rows).fill(0).map((_,i)=>(((i*37 + Math.floor(b.win*97))%11) < 4 ? 1 : 0));
+    const ww = bw/cols*0.58, wh = bh/rows*0.5;
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      if(!b.lit[r*cols+c]) continue;
+      const flick = (((r*17+c*23+Math.floor(b.win*91)+Math.floor(G.t*2))%29)===0) ? 0.62 : 1;
+      px(gx-bw/2 + bw*(c+0.22)/cols, gy-bh + bh*(r+0.24)/rows, ww, wh,
+         `rgba(255,200,90,${0.85*flick})`);
+    }
+    // rooftop clutter: water towers, antennas and vents make the skyline read
+    // as real buildings rather than plain boxes
+    const rh = bd*0.42;
+    if(s > 0.34){
+      if(b.tone > 0.55){
+        const tw2 = bw*0.22, th = rh + 9*s;
+        px(gx-bw*0.22, gy-bh-rh-th, tw2, th, '#33265f');
+        px(gx-bw*0.26, gy-bh-rh-th-3*s, tw2*1.4, 3*s, '#463573');
+      } else if(b.tone > 0.28){
+        px(gx-bw*0.05, gy-bh-rh-13*s, 2.2*s, 13*s, '#4a3b78');
+        const on = (Math.floor(G.t*2)%2)===0 ? '#ff4d4d' : '#5a1030';
+        px(gx-bw*0.05-2*s, gy-bh-rh-15*s, 5.5*s, 3*s, on);
+      } else {
+        px(gx-bw*0.30, gy-bh-rh-4*s, bw*0.16, 4*s, '#4a3b78');
+        px(gx+bw*0.10, gy-bh-rh-6*s, bw*0.10, 6*s, '#3d2f68');
+      }
+    }
+    // ground-floor shopfront glow
+    px(gx-bw/2, gy-bh*0.10, bw, bh*0.10, 'rgba(255,180,80,0.16)');
+  }
+}
+
+function drawRoad(){
+  // ground plane gradient
+  const g = ctx.createLinearGradient(0,HORIZON-10,0,H+20);
+  g.addColorStop(0,'#16172c'); g.addColorStop(.5,'#222339'); g.addColorStop(1,'#383a55');
+  ctx.fillStyle=g; ctx.fillRect(0,HORIZON-6,W,H-HORIZON+40);
+
+  const roadHalf = LANE_W*1.5 + 0.35;
+  const zb = 300, zf = -200;
+
+  // sidewalks either side
+  const swOut = 1.35;
+  for(const side of [-1,1]){
+    const a=projX(side*roadHalf,zb), b=projX(side*(roadHalf+swOut),zb);
+    const c=projX(side*(roadHalf+swOut),zf), dd=projX(side*roadHalf,zf);
+    const yb=projY(0,zb), yf=projY(0,zf);
+    ctx.fillStyle = '#3a3c5c';
+    ctx.beginPath(); ctx.moveTo(a,yb); ctx.lineTo(b,yb); ctx.lineTo(c,yf); ctx.lineTo(dd,yf); ctx.closePath(); ctx.fill();
+    // kerb kerbstone strip
+    ctx.fillStyle='#61648c';
+    ctx.beginPath();
+    ctx.moveTo(a,yb); ctx.lineTo(a + side*5,yb); ctx.lineTo(dd + side*3,yf); ctx.lineTo(dd,yf);
+    ctx.closePath(); ctx.fill();
+  }
+
+  // tram rails down each lane (this is a subway city, after all)
+  for(const lane of LANES){
+    for(const off of [-0.30, 0.30]){
+      const lx = lane*LANE_W + off;
+      const a1=projX(lx,zb), a2=projX(lx,zf), ya=projY(0,zb), yb2=projY(0,zf);
+      ctx.strokeStyle='rgba(150,160,200,0.30)';
+      ctx.lineWidth=Math.max(1, 2.0);
+      ctx.beginPath(); ctx.moveTo(a1,ya); ctx.lineTo(a2,yb2); ctx.stroke();
+      ctx.lineWidth=1;
+    }
+  }
+
+  // crosswalk zebra bars at regular intervals
+  const cwPeriod = 54, cwPhase = (G.dist % cwPeriod);
+  for(let i=-2;i<8;i++){
+    const z = i*cwPeriod - cwPhase + 20;
+    if(z < -30 || z > 300) continue;
+    const zd = z + 4.2;
+    const ya = projY(0,z), yb3 = projY(0,zd);
+    ctx.fillStyle='rgba(236,238,250,0.50)';
+    for(let k=-7;k<=7;k++){
+      const lx = k*0.52;
+      if(Math.abs(lx) > roadHalf) continue;
+      const x1=projX(lx-0.18,z), x2=projX(lx+0.18,z);
+      const x3=projX(lx+0.18,zd), x4=projX(lx-0.18,zd);
+      ctx.beginPath(); ctx.moveTo(x1,ya); ctx.lineTo(x2,ya); ctx.lineTo(x3,yb3); ctx.lineTo(x4,yb3);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+
+  // lane divider dashes (scrolling by distance)
+  const cycle = 6;
+  const phase = (G.dist % cycle);
+  for(let i=-14;i<50;i++){
+    const zBase = (i*cycle) - phase + 4;
+    for(const lx of [-LANE_W/2, LANE_W/2]){
+      const za = zBase, zb2 = zBase+3.1;
+      if(zb2 < -60 || za > 300) continue;
+      const sA = depthK(za), sB = depthK(zb2);
+      if(sA<=0.02||sB<=0.02) continue;
+      const wA = 0.16*sA, wB = 0.16*sB;
+      ctx.fillStyle = 'rgba(240,240,200,0.82)';
+      ctx.beginPath();
+      ctx.moveTo(projX(lx,za)-wA/2, projY(0,za));
+      ctx.lineTo(projX(lx,za)+wA/2, projY(0,za));
+      ctx.lineTo(projX(lx,zb2)+wB/2, projY(0,zb2));
+      ctx.lineTo(projX(lx,zb2)-wB/2, projY(0,zb2));
+      ctx.closePath(); ctx.fill();
+    }
+  }
+
+  // manhole covers
+  const mhPeriod = 37, mhPhase = (G.dist % mhPeriod);
+  for(let i=-2;i<10;i++){
+    const z = i*mhPeriod - mhPhase + 12;
+    if(z < -20 || z > 300) continue;
+    const s = depthK(z); if(s < 0.05) continue;
+    const x = projX(((i*7)%3 - 1)*LANE_W*0.42, z), y = projY(0,z);
+    ctx.fillStyle='rgba(20,22,36,0.55)';
+    ctx.beginPath(); ctx.ellipse(x, y, 1.15*s, 0.42*s, 0, 0, 7); ctx.fill();
+  }
+
+  // street furniture on the kerbs: hydrants, cans, benches, boxes
+  const propPeriod = 11, propPhase = (G.dist % propPeriod);
+  for(let i=-4;i<32;i++){
+    const z = i*propPeriod - propPhase + 8;
+    if(z < -34 || z > 300) continue;
+    for(const side of [-1,1]){
+      const seed = i*2 + (side>0?101:0) + Math.floor((G.dist - z)/propPeriod)*0;
+      if(hash01(seed) < 0.42) continue;
+      drawProp(side*(roadHalf+0.55), z, side, Math.floor(Math.abs(seed))*7);
+    }
+  }
+
+  // street lamps
+  const pcycle = 14, pphase = (G.dist % pcycle);
+  for(let i=-6;i<28;i++){
+    const z = i*pcycle - pphase + 6;
+    if(z < -40 || z > 300) continue;
+    for(const side of [-1,1]){
+      drawLamp(side*(roadHalf+0.95), z, side);
+    }
+  }
+}
+
+function drawProp(xw, z, side, seed){
+  const s = depthK(z); if(s <= 0.055) return;
+  const x = projX(xw,z), y = projY(0,z);
+  const v = seed % 4;
+  // contact shadow
+  ctx.fillStyle='rgba(0,0,0,0.32)';
+  ctx.beginPath(); ctx.ellipse(x, y, 2.4*s, 0.8*s, 0, 0, 7); ctx.fill();
+  if(v === 0){                                   // fire hydrant
+    px(x-1.6*s, y-4.6*s, 3.2*s, 4.6*s, '#c0392b');
+    px(x-2.6*s, y-4.0*s, 5.2*s, 1.4*s, '#e04b3a');
+    px(x-1.0*s, y-6.0*s, 2.0*s, 1.6*s, '#c0392b');
+  } else if(v === 1){                            // trash can
+    px(x-2.2*s, y-5.0*s, 4.4*s, 5.0*s, '#4a5a4a');
+    px(x-2.6*s, y-6.0*s, 5.2*s, 1.2*s, '#63735f');
+    px(x-1.6*s, y-4.0*s, 3.2*s, 0.8*s, '#2f3a2f');
+  } else if(v === 2){                            // bench
+    px(x-4.0*s, y-2.6*s, 8.0*s, 1.2*s, '#7a5a3a');
+    px(x-4.0*s, y-4.4*s, 8.0*s, 1.2*s, '#7a5a3a');
+    px(x-3.4*s, y-2.6*s, 1.0*s, 2.6*s, '#4a3524');
+    px(x+2.4*s, y-2.6*s, 1.0*s, 2.6*s, '#4a3524');
+  } else {                                       // newspaper box
+    px(x-2.0*s, y-5.4*s, 4.0*s, 5.4*s, '#2f6fa8');
+    px(x-1.4*s, y-4.6*s, 2.8*s, 2.2*s, '#d8e6f2');
+    px(x-2.2*s, y-5.8*s, 4.4*s, 0.8*s, '#1d4a73');
+  }
+}
+
+// Elevated infrastructure spanning the street: gantries, a rail viaduct and
+// overhead wires. Drawn before the actors so it frames them from behind.
+function drawOverhead(){
+  const roadHalf = LANE_W*1.5 + 0.35;
+  // overhead cables sagging between the gantries
+  const per = 38, ph = (G.dist % per);
+  const posts = [];
+  for(let i=-1;i<9;i++){
+    const z = i*per - ph + 10;
+    if(z < -30 || z > 300) continue;
+    const s = depthK(z); if(s < 0.06) continue;
+    const y = projY(0,z);
+    posts.push({z,s,y,x:projX(-(roadHalf+3.0), z)});
+    for(const side of [-1,1]){
+      const x = projX(side*(roadHalf+3.0), z);
+      if(x < -60 || x > W+60){ continue; }
+      const h = 11*s;
+      px(x-1.6*s, y-h, 3.2*s, h, '#3f4468');
+      px(x-3.4*s, y-h, 6.8*s, 1.5*s, '#525879');
+      px(x-2.2*s, y-h-1.4*s, 4.4*s, 1.4*s, '#6a7099');
+      // little warning lamp on top
+      const on = (Math.floor(G.t*2 + i)%2)===0 ? '#ff5252' : '#5a1a1a';
+      px(x-1.0*s, y-h-3.2*s, 2.0*s, 1.8*s, on);
+    }
+  }
+  // wires between consecutive gantries, sagging a touch
+  for(let i=0;i<posts.length-1;i++){
+    const a = posts[i], b = posts[i+1];
+    if(b.z - a.z > per*1.4) continue;
+    if(a.x > W+60 && b.x > W+60) continue;
+    ctx.strokeStyle='rgba(30,32,54,0.85)';
+    ctx.lineWidth = Math.max(1, 1.3*a.s);
+    for(const off of [-1.5, 0, 1.5]){
+      const ax = projX(off, a.z), bx = projX(off, b.z);
+      ctx.beginPath();
+      ctx.moveTo(ax, a.y - 11*a.s);
+      ctx.quadraticCurveTo((ax+bx)/2, Math.max(a.y,b.y) - 9.4*Math.min(a.s,b.s), bx, b.y - 11*b.s);
+      ctx.stroke();
+    }
+    ctx.lineWidth = 1;
+  }
+  // a railway viaduct crossing overhead every so often - pure city scale
+  const vper = 150, vph = (G.dist % vper);
+  for(let i=-1;i<3;i++){
+    const z = i*vper - vph + 120;
+    if(z < -40 || z > 300) continue;
+    const s = depthK(z); if(s < 0.08) continue;
+    const y = projY(0,z);
+    const top = y - 14.5*s, hgt = 3.6*s;
+    const halfW = projX(-14,z) - projX(0,z);
+    px(W/2 - Math.abs(halfW), top, Math.abs(halfW)*2, hgt, '#2c3050');
+    px(W/2 - Math.abs(halfW), top, Math.abs(halfW)*2, 1.4*s, '#3d4269');
+    // girder lattice
+    ctx.strokeStyle='rgba(90,98,140,0.5)';
+    ctx.lineWidth=Math.max(1,1.1*s);
+    const seg = 9;
+    for(let k=0;k<seg;k++){
+      const x1 = W/2 - Math.abs(halfW) + (k/seg)*Math.abs(halfW)*2;
+      const x2 = W/2 - Math.abs(halfW) + ((k+1)/seg)*Math.abs(halfW)*2;
+      ctx.beginPath(); ctx.moveTo(x1, top+hgt); ctx.lineTo(x2, top); ctx.stroke();
+    }
+    ctx.lineWidth=1;
+    // support pillars
+    for(const side of [-1,1]){
+      const x = projX(side*(roadHalf+4.2), z);
+      px(x-2.4*s, top+hgt, 4.8*s, (y-(top+hgt)), '#232744');
+    }
+    // tiny commuter train crossing up there
+    const tx = ((G.t*26) % (Math.abs(halfW)*2 + 160)) - 80;
+    const tcar = 22*s;
+    px(W/2 - Math.abs(halfW) + tx, top-4.6*s, tcar, 4.6*s, '#8e94ab');
+    px(W/2 - Math.abs(halfW) + tx, top-4.6*s, tcar, 1.2*s, '#c9cede');
+    for(let k=0;k<4;k++) px(W/2 - Math.abs(halfW) + tx + 2*s + k*5*s, top-3.6*s, 3*s, 1.8*s, '#ffd98a');
+  }
+}
+
+function drawLamp(xw, z, side){
+  const s = depthK(z); if(s<=0.03) return;
+  const x = projX(xw,z), y = projY(0,z);
+  const hgt = 7.2*s;
+  px(x-2.2*s, y-hgt, 4.4*s, hgt, '#6b6f96');
+  px(x-2.2*s, y-hgt-1.6*s, 4.4*s, 2.2*s, '#858ab5');
+  const ax = x - side*2.6*s;
+  px(ax-1.4*s, y-hgt-1.2*s, 4.2*s, 2.2*s, '#858ab5');
+  const glowR = 26*s;
+  const gr = ctx.createRadialGradient(ax, y-hgt, 0, ax, y-hgt, glowR);
+  gr.addColorStop(0,'rgba(255,232,150,0.55)'); gr.addColorStop(1,'rgba(255,232,150,0)');
+  ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(ax, y-hgt, glowR, 0, 7); ctx.fill();
+  px(ax-1.1*s, y-hgt-0.6*s, 3*s, 1.6*s, '#fff2c0');
+}
+
+/* ---------- sprites ---------- */
+function drawSpider(x, y, sc, opt){
+  // x,y = feet center. sc = pixel scale. opt: {duck, run, air, stumble, flash, skin, dir}
+  const skin = SKINS.find(k=>k.id===S.skin) || SKINS[0];
+  const red = opt.flash ? '#ffffff' : skin.red;
+  const blue = opt.flash ? '#ffffff' : skin.blue;
+  const dark = '#0b0713';
+  const duck = opt.duck;
+  const ph = opt.run;
+
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.scale(sc, sc);
+  if(opt.dir) ctx.scale(opt.dir, 1);
+
+  const HGT = duck ? 15 : 26;
+  const HEAD = duck ? 6 : 8;
+  const BW = duck ? 15 : 11;
+
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(0, 1, duck?10:8, 2.6, 0, 0, 7); ctx.fill();
+
+  // legs
+  const swing = opt.air ? [5,-6] : (opt.stumble ? [7,-3] : [Math.sin(ph)*6, -Math.sin(ph)*6]);
+  for(let i=0;i<2;i++){
+    const sx = i?-1:1;
+    const sw = swing[i];
+    ctx.fillStyle = blue;
+    ctx.fillRect(sx*2 + sw*0.45 - 2, -9, 4, 8);
+    ctx.fillStyle = red;
+    ctx.fillRect(sx*2 + sw - 2, -2.2, 4.4, 2.6);   // boot
+  }
+  // torso
+  ctx.fillStyle = blue;
+  roundRect(-BW/2, -HGT+HEAD, BW, HGT-HEAD-7, 2, blue);
+  // chest emblem (spider)
+  ctx.fillStyle = red;
+  ctx.fillRect(-BW/2, -HGT+HEAD, BW, 4);
+  ctx.fillStyle = dark;
+  ctx.fillRect(-1.6, -HGT+HEAD+6.6, 3.2, 4.6);
+  for(let i=-1;i<=1;i++){ ctx.fillRect(-4.6, -HGT+HEAD+7+i*1.6, 3.2, 1.1); ctx.fillRect(1.4, -HGT+HEAD+7+i*1.6, 3.2, 1.1); }
+  // web lines on chest
+  ctx.strokeStyle = skin.web; ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(-BW/2, -HGT+HEAD+5); ctx.lineTo(0, -HGT+HEAD+11); ctx.lineTo(BW/2, -HGT+HEAD+5);
+  ctx.moveTo(-BW/2, -HGT+HEAD+9); ctx.lineTo(BW/2, -HGT+HEAD+9);
+  ctx.stroke();
+
+  // arms - one raised forward like web-swinging
+  const armSwing = opt.air ? -12 : Math.sin(ph+Math.PI)*7;
+  ctx.fillStyle = red;
+  ctx.save();
+  ctx.translate(BW/2-0.6, -HGT+HEAD+2);
+  ctx.rotate((armSwing-30)*Math.PI/180);
+  ctx.fillRect(-1.8, 0, 3.6, 9);
+  ctx.fillStyle=blue; ctx.fillRect(-1.8, 8, 3.6, 3);
+  ctx.restore();
+  ctx.fillStyle = red;
+  ctx.save();
+  ctx.translate(-BW/2+0.6, -HGT+HEAD+2);
+  ctx.rotate((-armSwing+24)*Math.PI/180);
+  ctx.fillRect(-1.8, 0, 3.6, 8.5);
+  ctx.fillStyle=blue; ctx.fillRect(-1.8, 7.6, 3.6, 3);
+  ctx.restore();
+
+  // head
+  const hy = -HGT;
+  ctx.fillStyle = red;
+  roundRect(-4.4, hy, 8.8, HEAD+1.6, 2, red);
+  // eyes (big white lenses)
+  ctx.fillStyle = opt.flash ? '#ffffff' : skin.lens;
+  ctx.fillRect(-3.4, hy+2.2, 3.4, 3.2);
+  ctx.fillRect(0.2, hy+2.2, 3.4, 3.2);
+  ctx.strokeStyle = dark; ctx.lineWidth=0.9;
+  ctx.strokeRect(-3.4, hy+2.2, 3.4, 3.2);
+  ctx.strokeRect(0.2, hy+2.2, 3.4, 3.2);
+  ctx.fillStyle = dark;
+  ctx.fillRect(-2.6, hy+3.4, 1.7, 1.2);
+  ctx.fillRect(0.9, hy+3.4, 1.7, 1.2);
+  // web on head
+  ctx.strokeStyle = skin.web; ctx.lineWidth=0.55;
+  ctx.beginPath();
+  ctx.moveTo(-4.4, hy+1.2); ctx.lineTo(0, hy+4.4); ctx.lineTo(4.4, hy+1.2);
+  ctx.moveTo(-4.4, hy+5.4); ctx.lineTo(0, hy+5.9); ctx.lineTo(4.4, hy+5.4);
+  ctx.stroke();
+
+  if(opt.stumble){
+    ctx.fillStyle = '#ffd23f';
+    ctx.font='bold 9px monospace'; ctx.fillText('!', -2, hy-3);
+  }
+  ctx.restore();
+}
+
+function drawHulk(x, y, sc, rage, t){
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.scale(sc, sc);
+
+  const G1 = rage>0.55 ? '#7dff5c' : '#4ce04c';
+  const G2 = rage>0.55 ? '#54d13a' : '#33b833';
+  const purple = '#5b3fa8';
+  const hair = '#1d2a14';
+
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,0.4)';
+  ctx.beginPath(); ctx.ellipse(0,1,15,3.4,0,0,7); ctx.fill();
+
+  const lean = rage*0.16;
+  ctx.rotate(-lean);
+
+  // legs
+  const st = Math.sin(t*11);
+  const st2 = Math.sin(t*11 + Math.PI);
+  for(let i=0;i<2;i++){
+    const sx = i?-1:1, s = i?st2:st;
+    ctx.fillStyle = purple;
+    ctx.fillRect(sx*4 + s*2 - 4, -14, 8.5, 14);
+    ctx.fillStyle = G1;
+    ctx.fillRect(sx*4 + s*3 - 4.4, -2.6, 6, 3);
+  }
+  // torso
+  ctx.fillStyle = G2;
+  roundRect(-10, -32, 20, 19, 3, G2);
+  // pecs
+  ctx.fillStyle = G1;
+  ctx.fillRect(-9, -31, 8, 6.4); ctx.fillRect(1, -31, 8, 6.4);
+  px(-1.2,-31,2.4,7.4,'#1f4d16');
+  // abs
+  ctx.fillStyle='#2f8a26';
+  for(let r=0;r<2;r++)for(let c=0;c<3;c++) ctx.fillRect(-7+c*4.6, -23+r*3.6, 3.8, 2.8);
+  // shoulders + huge arms
+  ctx.fillStyle = G1;
+  const armA = Math.sin(t*11)*0.5;
+  ctx.save(); ctx.translate(9,-29); ctx.rotate(0.5 + armA);
+  ctx.fillRect(-4.5,0,9,21); ctx.fillStyle=G2; ctx.fillRect(-5.5,19,11,7.5); ctx.restore();
+  ctx.fillStyle=G1;
+  ctx.save(); ctx.translate(-9,-29); ctx.rotate(-0.5 - armA);
+  ctx.fillRect(-4.5,0,9,21); ctx.fillStyle=G2; ctx.fillRect(-5.5,19,11,7.5); ctx.restore();
+  // head
+  ctx.fillStyle = G1;
+  roundRect(-6.5, -44, 13, 12.5, 3, G1);
+  // hair
+  ctx.fillStyle = hair;
+  ctx.fillRect(-7, -45.5, 14, 4.6);
+  ctx.fillRect(-7.6, -43.5, 2.6, 3.4); ctx.fillRect(5, -43.5, 2.6, 3.4);
+  // brow + eyes
+  ctx.fillStyle = '#1f4d16';
+  ctx.fillRect(-6.2, -40.4, 12.4, 2);
+  ctx.fillStyle = rage>0.5 ? '#fff07a' : '#e8f4ff';
+  ctx.fillRect(-4.6, -38.6, 3.6, 2.6);
+  ctx.fillRect(1.0, -38.6, 3.6, 2.6);
+  ctx.fillStyle = rage>0.5 ? '#c1121f' : '#12240c';
+  ctx.fillRect(-3.9, -38.1, 2.2, 1.8);
+  ctx.fillRect(1.7, -38.1, 2.2, 1.8);
+  // mouth / teeth
+  const open = 1.6 + rage*2.6 + Math.abs(Math.sin(t*7))*0.8;
+  ctx.fillStyle='#3a0d12'; ctx.fillRect(-4.6, -34.6, 9.2, open);
+  ctx.fillStyle='#f6f6f6';
+  for(let i=0;i<4;i++) ctx.fillRect(-4.2+i*2.4, -34.6, 1.7, 1.3);
+  ctx.restore();
+}
+
+function roundRect(x,y,w,h,r,fill){
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  const rr = Math.min(r, w/2, h/2);
+  ctx.moveTo(x+rr,y);
+  ctx.arcTo(x+w,y,x+w,y+h,rr);
+  ctx.arcTo(x+w,y+h,x,y+h,rr);
+  ctx.arcTo(x,y+h,x,y,rr);
+  ctx.arcTo(x,y,x+w,y,rr);
+  ctx.closePath(); ctx.fill();
+}
+
+/* ---------- obstacle art ----------
+   Every shape is built from its PHYSICAL height: hpx = o.h (world units) times
+   PPU, the pixels-per-world-unit at this depth. Widths are expressed as a
+   fraction of that height, matching the KIND hitbox ratios (h/w per kind), so
+   the pixels you see and the box you collide with can never disagree. */
+function drawObstacle(o){
+  const s   = 1;                    // upright art: no depth shrink overhead
+  if(s <= 0.03) return;
+  // Constant pixels-per-unit: in a top-down view an object's SIZE does not
+  // change with depth, so the art and the hitbox stay in lockstep at every z.
+  const PPU = PX_PER_UNIT;
+  const hpx = o.h * PPU;                       // physical height in pixels
+  const wpx = (KIND[o.kind].w / KIND[o.kind].h) * hpx;
+  const x = projX(o.lane*LANE_W, o.z);
+  const y = projY(0, o.z);
+  const wob = o.hitAnim>0 ? Math.sin(o.hitAnim*40)*3*s : 0;
+
+  ctx.save();
+  ctx.translate(x+wob, y);
+  if(o.hitAnim>0) ctx.rotate(o.hitAnim*0.16*(o.lane>=0?1:-1));
+
+  const kind = o.kind;
+  const U = hpx/20;                            // one "art unit" for details
+
+  if(kind==='cone'){
+    ctx.fillStyle='rgba(0,0,0,.35)';
+    ctx.beginPath(); ctx.ellipse(0, 1, wpx*0.60, wpx*0.13, 0, 0, 7); ctx.fill();
+    px(-wpx/2, -hpx*0.13, wpx, hpx*0.13, '#20222e');           // base
+    ctx.fillStyle='#ff7a1a';
+    ctx.beginPath(); ctx.moveTo(0,-hpx); ctx.lineTo(wpx/2,-hpx*0.10);
+    ctx.lineTo(-wpx/2,-hpx*0.10); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#ffe9c9';                                    // reflective band
+    ctx.beginPath();
+    ctx.moveTo(-wpx*0.30,-hpx*0.52); ctx.lineTo(wpx*0.30,-hpx*0.52);
+    ctx.lineTo(wpx*0.38,-hpx*0.36); ctx.lineTo(-wpx*0.38,-hpx*0.36);
+    ctx.closePath(); ctx.fill();
+    px(-wpx*0.16, -hpx, wpx*0.32, U*0.6, '#ffd0a0');            // tip
+  }
+  else if(kind==='barrier'){
+    const bh = hpx*0.46;
+    // A-frame legs
+    px(-wpx/2, -hpx, U*0.9, hpx, '#d8d8e2');
+    px(wpx/2-U*0.9, -hpx, U*0.9, hpx, '#d8d8e2');
+    // striped board across the top
+    const by = -hpx;
+    px(-wpx/2, by, wpx, bh, '#f3f3f8');
+    ctx.save();
+    ctx.beginPath(); ctx.rect(-wpx/2, by, wpx, bh); ctx.clip();
+    for(let i=-4;i<16;i++){
+      ctx.fillStyle = i%2 ? '#ff3b30' : '#f3f3f8';
+      const sw = wpx*0.10;
+      const x0 = -wpx/2 + i*sw*1.5;
+      ctx.beginPath();
+      ctx.moveTo(x0, by+bh); ctx.lineTo(x0+sw, by+bh);
+      ctx.lineTo(x0+sw*1.7, by); ctx.lineTo(x0+sw*0.7, by);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+    // flashing beacon on top
+    const bl = (Math.floor(G.t*3)%2)===0 ? '#ffd23f' : '#ff5a3c';
+    px(-U*0.8, by-U*1.7, U*1.6, U*1.7, bl);
+  }
+  else if(kind==='wall'){
+    const cap = U*1.6;
+    px(-wpx/2, -hpx, wpx, hpx, '#8d8fa8');
+    px(-wpx/2, -hpx, wpx, cap, '#a9abc4');                     // coping
+    ctx.strokeStyle='rgba(0,0,0,.30)'; ctx.lineWidth=Math.max(1, U*0.22);
+    const rows=4, cols=3;
+    for(let r=1;r<rows;r++){
+      ctx.beginPath(); ctx.moveTo(-wpx/2, -hpx + hpx*r/rows);
+      ctx.lineTo(wpx/2, -hpx + hpx*r/rows); ctx.stroke();
+    }
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      const off=(r%2)?wpx/6:0;
+      ctx.beginPath();
+      ctx.moveTo(-wpx/2+off+c*wpx/cols, -hpx + hpx*r/rows);
+      ctx.lineTo(-wpx/2+off+c*wpx/cols, -hpx + hpx*(r+1)/rows);
+      ctx.stroke();
+    }
+    px(-wpx/2, -hpx, wpx, U*0.5, '#6fd06f');                   // graffiti line
+  }
+  else if(kind==='bar' || kind==='sign'){
+    // posts stand to full height; the bar hangs between them
+    px(-wpx/2, -hpx, U*1.2, hpx, '#c9cbe0');
+    px(wpx/2-U*1.2, -hpx, U*1.2, hpx, '#c9cbe0');
+    const bh = o.h * PPU;                       // the bar's own physical thickness
+    const by = -BAR_TOP * PPU;                  // hung at the shared BAR_TOP height
+    px(-wpx/2, by, wpx, bh, kind==='bar' ? '#ffd23f' : '#1e63d0');
+    ctx.save();
+    ctx.beginPath(); ctx.rect(-wpx/2, by, wpx, bh); ctx.clip();
+    if(kind==='bar'){
+      for(let i=-3;i<14;i++){
+        ctx.fillStyle = i%2 ? '#1a1a22' : '#ffd23f';
+        const sw=wpx*0.09, x0=-wpx/2+i*sw*1.5;
+        ctx.beginPath();
+        ctx.moveTo(x0,by+bh); ctx.lineTo(x0+sw,by+bh);
+        ctx.lineTo(x0+sw*1.7,by); ctx.lineTo(x0+sw*0.7,by);
+        ctx.closePath(); ctx.fill();
+      }
+    }else{
+      ctx.fillStyle='#fff';
+      ctx.font=`bold ${Math.max(6,Math.round(bh*0.62))}px monospace`;
+      ctx.fillText('DUCK!', -wpx/2 + bh*0.4, by + bh*0.78);
+    }
+    ctx.restore();
+    const bl = (Math.floor(G.t*4)%2)===0 ? 'rgba(255,60,60,.95)' : 'rgba(255,210,60,.95)';
+    px(-wpx/2, by+bh-U*0.28, wpx, U*0.28, bl);                 // hazard edge
+    px(-wpx/2, by-U*0.34, wpx, U*0.34, '#4a4d66');
+  }
+  else if(kind==='train'){
+    ctx.restore();
+    drawTrain(o, s, x, y, o.lenMul, false, PPU);
+    return;
+  }
+  else if(kind==='flatcar'){
+    ctx.restore();
+    drawTrain(o, s, x, y, o.lenMul, true, PPU);
+    return;
+  }
+  ctx.restore();
+}
+
+function drawTrain(o, s, x, y, mul, low, PPU){
+  PPU = PPU || PX_PER_UNIT*s;
+  // Two shapes share this routine:
+  //   low=false - a full subway car: 2.35m of steel you cannot jump, dodge it
+  //   low=true  - a low open wagon whose 0.95m deck you can leap onto and ride
+  // Art heights track the real PHYSICAL heights so the pixels agree with the
+  // hitbox: a wagon roof really is about waist high, a subway car really is not.
+  // Physical dimensions: the car body is exactly o.h tall, and its width comes
+  // from the KIND w/h ratio so the art matches the lane the hitbox occupies.
+  const K    = KIND[o.kind];
+  const hgt  = o.h * PPU;                  // full physical height in pixels
+  const wdt  = (K.w / K.h) * hgt;
+  const len  = (low ? 4.6 : 5.5) * mul * (PPU/20);   // how far the deck recedes
+  const topY = -hgt;
+  const U    = hgt/24;                     // detail unit, scales with the car
+  const deckC = low ? '#6b7192' : '#5f657d';
+
+  // contact shadow
+  ctx.fillStyle='rgba(0,0,0,.45)';
+  ctx.beginPath(); ctx.ellipse(0,1,wdt*0.60,len*0.32,0,0,7); ctx.fill();
+
+  if(low){
+    // ---- low wagon -------------------------------------------------------
+    // deck running away from the camera, tilted in screen space
+    ctx.beginPath();
+    ctx.moveTo(-wdt/2, topY);
+    ctx.lineTo( wdt/2, topY);
+    ctx.lineTo( wdt/2*0.86, topY - len*0.5);
+    ctx.lineTo(-wdt/2*0.86, topY - len*0.5);
+    ctx.closePath();
+    px(-wdt/2, topY, wdt, 3*s, '#878ead');
+    ctx.fillStyle = deckC; ctx.fill();
+    // plank seams across the deck
+    ctx.strokeStyle='rgba(30,32,52,0.55)'; ctx.lineWidth=Math.max(1,1.1*s);
+    for(let i=1;i<4;i++){
+      const f = i/4, yy = topY - len*0.5*f, hw = (wdt/2)*(1 - 0.14*f);
+      ctx.beginPath(); ctx.moveTo(-hw, yy); ctx.lineTo(hw, yy); ctx.stroke();
+    }
+    ctx.lineWidth=1;
+    // cargo crates riding on top
+    px(-wdt*0.30, topY-len*0.34, wdt*0.24, 8*s, '#8a6a3d');
+    px(-wdt*0.30, topY-len*0.34, wdt*0.24, 1.6*s, '#a98650');
+    px( wdt*0.06, topY-len*0.26, wdt*0.20, 6*s, '#3f6b4a');
+    px( wdt*0.06, topY-len*0.26, wdt*0.20, 1.3*s, '#55895f');
+    // side skirt under the deck edge (what you slam into if you under-jump)
+    px(-wdt/2, topY, wdt, 2.2*s, '#b9c0d6');
+    px(-wdt/2, topY+2.2*s, wdt, hgt*0.20, '#454a63');
+    // hazard chevrons so it reads as "jump ON me"
+    for(let i=-5;i<6;i++){
+      ctx.fillStyle = (i%2) ? '#ff9f1a' : '#20222e';
+      ctx.fillRect(-wdt/2 + (i+5)*(wdt/10), topY+hgt*0.30, wdt/10, hgt*0.16);
+    }
+    // lamps at the near corners
+    const on = 0.65 + 0.35*Math.sin(G.t*7);
+    ctx.fillStyle=`rgba(255,235,150,${on})`;
+    ctx.beginPath(); ctx.ellipse(-wdt*0.30, topY+1.2*s, 2.2*s, 1.5*s, 0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse( wdt*0.30, topY+1.2*s, 2.2*s, 1.5*s, 0,0,7); ctx.fill();
+    // bogies
+    px(-wdt/2-1*s, -4.4*s, 4*s, 4.4*s, '#1c1e28');
+    px( wdt/2-3*s, -4.4*s, 4*s, 4.4*s, '#1c1e28');
+    px(-wdt*0.22, -3.4*s, 3*s, 3.4*s, '#1c1e28');
+    px( wdt*0.06, -3.4*s, 3*s, 3.4*s, '#1c1e28');
+    // "JUMP" deck marking projected on the ground in front
+    ctx.save();
+    ctx.fillStyle='rgba(255,190,60,0.55)';
+    ctx.font=`bold ${Math.max(3,Math.round(4.4*s))}px monospace`;
+    ctx.textAlign='center';
+    ctx.fillText('JUMP ON', 0, -1.5*s);
+    ctx.restore();
+  } else {
+    // ---- full subway car -------------------------------------------------
+    px(-wdt/2, topY, wdt, hgt, '#c9cede');
+    px(-wdt/2, topY, wdt*0.18, hgt, '#e8ecf6');
+    px(wdt/2-wdt*0.16, topY, wdt*0.16, hgt, '#8e94ab');
+    // roof receding away
+    px(-wdt/2, topY - len*0.42, wdt, len*0.42, deckC);
+    px(-wdt/2, topY - len*0.42, wdt, len*0.10, '#767d97');
+    ctx.beginPath();
+    ctx.moveTo(-wdt/2, topY - len*0.42);
+    ctx.lineTo( wdt/2, topY - len*0.42);
+    ctx.lineTo( wdt/2*0.84, topY - len*0.56);
+    ctx.lineTo(-wdt/2*0.84, topY - len*0.56);
+    ctx.closePath();
+    ctx.fillStyle='#7d849e'; ctx.fill();
+    // side windows
+    const winY = topY + hgt*0.20, winH = hgt*0.34;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(-wdt/2, topY, wdt, hgt); ctx.clip();
+    for(let i=0;i<4;i++){
+      const ww = wdt*0.16;
+      const wx = -wdt/2 + wdt*0.10 + i*(wdt*0.21);
+      px(wx, winY, ww, winH, '#101a30');
+      px(wx, winY, ww, winH*0.35, 'rgba(140,200,255,.5)');
+    }
+    ctx.restore();
+    px(-wdt/2, topY+hgt*0.66, wdt, hgt*0.10, '#e02b2b');
+    px(-wdt/2, topY+hgt*0.86, wdt, hgt*0.14, '#3b3f52');
+    px(-wdt/2-1*s, -5*s, 4*s, 5*s, '#1c1e28');
+    px(wdt/2-3*s, -5*s, 4*s, 5*s, '#1c1e28');
+    const on = 0.7 + 0.3*Math.sin(G.t*6);
+    ctx.fillStyle=`rgba(255,240,170,${on})`;
+    ctx.beginPath(); ctx.ellipse(-wdt*0.26, topY+hgt*0.80, 2.6*s, 1.8*s, 0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse( wdt*0.26, topY+hgt*0.80, 2.6*s, 1.8*s, 0,0,7); ctx.fill();
+    px(-wdt*0.30, topY+hgt*0.16, wdt*0.60, hgt*0.30, 'rgba(150,210,255,.35)');
+    ctx.save();
+    ctx.fillStyle='#ffd23f';
+    ctx.font=`bold ${Math.max(3,Math.round(4.6*s))}px monospace`;
+    ctx.textAlign='center';
+    ctx.fillText('SUBWAY', 0, topY+hgt*0.60);
+    ctx.restore();
+  }
+
+  // headlight pool on the road in front
+  const gr = ctx.createRadialGradient(0,-2*s,0,0,-2*s,34*s);
+  gr.addColorStop(0,'rgba(255,240,170,.28)'); gr.addColorStop(1,'rgba(255,240,170,0)');
+  ctx.fillStyle=gr; ctx.beginPath(); ctx.ellipse(0,-2*s,34*s,10*s,0,0,7); ctx.fill();
+}
+
+function drawCoin(c){
+  const s = SPRITE_BOOST;          // coins keep full size in the overhead view
+  if(s<=0.03) return;
+  const x = projX(c.lane*LANE_W, c.z);
+  const y = projY(c.y + Math.sin(c.t)*0.08, c.z);
+  const r = 7*s;
+  const w = Math.abs(Math.cos(c.spin))*r + r*0.18;
+  const grd = ctx.createLinearGradient(x-w, y-r, x+w, y+r);
+  grd.addColorStop(0,'#fff3a8'); grd.addColorStop(.5,'#ffc31f'); grd.addColorStop(1,'#c98a00');
+  ctx.fillStyle = grd;
+  ctx.beginPath(); ctx.ellipse(x, y, Math.max(1,w), r, 0, 0, 7); ctx.fill();
+  ctx.strokeStyle='#8a5c00'; ctx.lineWidth=Math.max(1,1.1*s);
+  ctx.beginPath(); ctx.ellipse(x, y, Math.max(1,w), r, 0, 0, 7); ctx.stroke();
+  if(w > r*0.45){
+    ctx.fillStyle='rgba(255,255,255,.85)';
+    ctx.beginPath(); ctx.ellipse(x - w*0.22, y - r*0.24, Math.max(0.8,w*0.24), r*0.34, 0, 0, 7); ctx.fill();
+    ctx.fillStyle='#8a5c00';
+    ctx.save(); ctx.translate(x,y);
+    ctx.font=`bold ${Math.max(3,Math.round(r*1.1))}px monospace`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('$', 0, 0.5);
+    ctx.restore();
+  }
+}
+
+/* ---------- HUD ---------- */
+function drawHUD(){
+  const meters = Math.floor(G.dist / WORLD_UNITS_PER_M);
+  ctx.save();
+  ctx.textBaseline='top';
+
+  // top bar panel
+  ctx.fillStyle='rgba(6,8,20,.72)';
+  ctx.fillRect(10,10,300,52);
+  ctx.fillRect(W-310,10,300,52);
+  ctx.strokeStyle='#33477f'; ctx.lineWidth=3; ctx.strokeRect(10,10,300,52); ctx.strokeRect(W-310,10,300,52);
+
+  ctx.fillStyle='#8fb6ff'; ctx.font='12px "Press Start 2P", monospace';
+  ctx.fillText('DISTANCE', 22, 20);
+  ctx.fillStyle='#ffffff'; ctx.font='20px "Press Start 2P", monospace';
+  ctx.fillText(meters + 'm', 22, 36);
+  ctx.fillStyle='#ffd23f'; ctx.font='12px "Press Start 2P", monospace';
+  ctx.fillText('BEST ' + S.best + 'm', 178, 20);
+  ctx.fillStyle='#cfe0ff'; ctx.font='14px "Press Start 2P", monospace';
+  ctx.fillText('x' + G.combo, 178, 40);
+
+  // coin counter right
+  ctx.fillStyle='#8fb6ff'; ctx.font='12px "Press Start 2P", monospace';
+  ctx.fillText('COINS', W-298, 20);
+  ctx.fillStyle='#ffd23f'; ctx.font='20px "Press Start 2P", monospace';
+  ctx.fillText('' + G.runCoins, W-298, 36);
+  ctx.fillStyle='#cfe0ff'; ctx.font='12px "Press Start 2P", monospace';
+  ctx.fillText('BANK ' + S.coins, W-160, 22);
+  ctx.fillStyle='#ff9f9f';
+  ctx.font='12px "Press Start 2P", monospace';
+  ctx.fillText('1 HIT = OVER', W-160, 42);
+
+  // chase bar: the Hulk icon rides the right edge and the green safe room is
+  // eaten away toward it, so the shrinking bar reads as him gaining on you
+  const bw = 380, bx = W/2 - bw/2, by = 14, bh = 26;
+  ctx.fillStyle='rgba(6,8,20,.8)'; ctx.fillRect(bx-4,by-4,bw+8,bh+8);
+  ctx.strokeStyle='#33477f'; ctx.lineWidth=3; ctx.strokeRect(bx-4,by-4,bw+8,bh+8);
+  const cm = G.catchMeter;
+  const low = cm < 0.34, mid = cm < 0.62;
+  const col = low ? (Math.floor(G.t*8)%2 ? '#ff2b2b':'#ff6b6b') : mid ? '#ffb020' : '#4ce04c';
+  ctx.fillStyle='#140b12'; ctx.fillRect(bx,by,bw,bh);
+  const fw = Math.max(0, bw*cm);
+  // safe room drains from LEFT to RIGHT, toward the Hulk marker
+  ctx.fillStyle = col; ctx.fillRect(bx, by, fw, bh);
+  ctx.fillStyle='rgba(0,0,0,.35)';
+  for(let i=1;i<10;i++) ctx.fillRect(bx+bw*i/10, by, 2, bh);
+  // little Hulk head at the right edge (where he is)
+  const hx = bx+bw+16, hy = by+bh/2;
+  ctx.fillStyle = low ? '#7dff5c' : '#4ce04c';
+  ctx.fillRect(hx-8, hy-9, 16, 15);
+  ctx.fillRect(hx-10, hy-11, 20, 5);
+  ctx.fillStyle = low ? '#c1121f' : '#12240c';
+  ctx.fillRect(hx-5, hy-4, 3.5, 3); ctx.fillRect(hx+1.5, hy-4, 3.5, 3);
+  ctx.fillStyle='#3a0d12'; ctx.fillRect(hx-4, hy+2, 8, 3);
+  ctx.fillStyle='#fff'; ctx.font='12px "Press Start 2P", monospace'; ctx.textAlign='center';
+  ctx.fillText(low?'!! HE IS ON YOU !!':'HULK BEHIND YOU', bx+bw/2, by+7);
+  ctx.textAlign='left';
+
+  // looming warning banner when he is close
+  if(low){
+    const pulse = 0.5+0.5*Math.sin(G.t*10);
+    ctx.save();
+    ctx.globalAlpha = 0.35+0.65*pulse;
+    ctx.font='16px "Press Start 2P", monospace'; ctx.textAlign='center';
+    ctx.fillStyle='#000'; ctx.fillText('HULK IS RIGHT BEHIND YOU!', W/2+3, H*0.20+3);
+    ctx.fillStyle='#ff3b3b'; ctx.fillText('HULK IS RIGHT BEHIND YOU!', W/2, H*0.20);
+    ctx.restore();
+    ctx.textAlign='left';
+  }
+
+  // combo timer
+  if(G.comboTimer>0){
+    ctx.fillStyle='#ffd23f'; ctx.font='13px "Press Start 2P", monospace'; ctx.textAlign='center';
+    ctx.fillText('COMBO x'+G.combo+'  '+G.comboTimer.toFixed(1)+'s', W/2, 52);
+    ctx.textAlign='left';
+  }
+  ctx.restore();
+}
+
+// Speed dressing. The run is always at full sprint, so these streaks are part
+// of the scene rather than a temporary boost: they sell "already running".
+function drawSpeedFX(){
+  if(G.state !== 'playing') return;
+  const rush = baseSpeed()/20;                 // speed upgrades = denser streaks
+  const roadHalf = LANE_W*1.5 + 0.35;
+  // ground streaks whipping past along both kerbs
+  const per = 9;
+  const ph  = (G.dist % per);
+  for(let i=-3;i<26;i++){
+    const z = i*per - ph + 3;
+    if(z < -26 || z > 290) continue;
+    const s = depthK(z);
+    if(s < 0.08) continue;
+    const seed = i*17 + Math.floor((G.dist - z)/per)*31;
+    if(hash01(seed) < 0.45) continue;
+    const len = (1.6 + hash01(seed+5)*3.2)*rush;
+    for(const side of [-1,1]){
+      const xw = side*(roadHalf + 0.5 + hash01(seed+9)*4.5);
+      const x1 = projX(xw, z),     y1 = projY(0, z);
+      const x2 = projX(xw, z+len), y2 = projY(0, z+len);
+      ctx.strokeStyle = `rgba(200,225,255,${0.10 + hash01(seed+3)*0.22})`;
+      ctx.lineWidth = Math.max(1, 2.6*s);
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+  }
+  // faint vertical speed lines at the frame edges
+  for(let i=0;i<7;i++){
+    const seed = Math.floor(G.dist*0.6) + i*13;
+    const side = i%2 ? 1 : -1;
+    const x = side < 0 ? 8 + hash01(seed)*66 : W - 8 - hash01(seed)*66;
+    const h = (90 + hash01(seed+2)*230)*rush;
+    const y = ((hash01(seed+4)*H) + G.dist*2.1*(0.6+hash01(seed+6))) % (H+140) - 70;
+    ctx.fillStyle = `rgba(190,220,255,${0.05 + hash01(seed+8)*0.10})`;
+    ctx.fillRect(x, y, 2, h);
+  }
+  // grit kicked up at the player's heels
+  if(player.onGround && Math.random() < 0.5*Math.min(1.6, rush)){
+    const fx0 = projX(player.xw, PLAYER_Z), fy0 = projY(player.y, PLAYER_Z);
+    fx.push({x:fx0 + rnd(-9,9), y:fy0 - rnd(0,3), vx:rnd(-2.2,2.2),
+      vy:rnd(-2.4,-0.4), life:rnd(.18,.38), t:0, color:'rgba(190,200,225,0.7)', s:rnd(2,4), kind:'puff'});
+  }
+}
+
+function drawDangerVignette(){
+  const cm = G.catchMeter;
+  if(cm > 0.5) return;
+  const a = (0.5-cm)*0.85;
+  const pulse = 0.65 + 0.35*Math.sin(G.t*9);
+  const g = ctx.createRadialGradient(W/2,H/2,H*0.22,W/2,H/2,H*0.82);
+  g.addColorStop(0,'rgba(0,0,0,0)');
+  g.addColorStop(0.65,`rgba(140,0,0,${a*0.5*pulse})`);
+  g.addColorStop(1,`rgba(190,0,0,${a*pulse})`);
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+}
+
+/* ---------- render ---------- */
+function render(){
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,W,H);
+
+  const sh = G.shake;
+  if(sh>0){ ctx.translate(rnd(-1,1)*8*sh, rnd(-1,1)*8*sh); }
+
+  drawSky();
+  drawBuildings();
+  drawRoad();
+  drawSpeedFX();
+  drawOverhead();
+
+  // entities sorted far -> near
+  const ents = [];
+  for(const o of obstacles) ents.push({z:o.z, kind:'obs', o});
+  for(const c of coins)     ents.push({z:c.z, kind:'coin', o:c});
+  ents.push({z:PLAYER_Z, kind:'player'});
+  ents.push({z:-G.hulkGap - 12, kind:'hulk'});
+  ents.sort((a,b)=> b.z - a.z);
+
+  for(const e of ents){
+    if(e.kind==='obs') drawObstacle(e.o);
+    else if(e.kind==='coin') drawCoin(e.o);
+    else if(e.kind==='hulk') drawHulkEntity();
+    else drawPlayerEntity();
+  }
+
+  // particles
+  for(const p of fx){
+    const a = 1 - p.t/p.life;
+    if(p.kind==='text'){
+      ctx.save();
+      ctx.globalAlpha = clamp(a*1.4,0,1);
+      ctx.font='14px "Press Start 2P", monospace'; ctx.textAlign='center';
+      ctx.fillStyle='#000'; ctx.fillText(p.txt, p.x+2, p.y+2);
+      ctx.fillStyle=p.color; ctx.fillText(p.txt, p.x, p.y);
+      ctx.restore();
+    }else if(p.kind==='star'){
+      ctx.globalAlpha = clamp(a,0,1);
+      ctx.fillStyle=p.color;
+      const s = p.s*(0.6+a*0.6);
+      ctx.fillRect(p.x-s/2, p.y-s/2, s, s);
+      ctx.globalAlpha = 1;
+    }else{
+      ctx.globalAlpha = clamp(a*0.9,0,1);
+      ctx.fillStyle=p.color;
+      ctx.fillRect(p.x-p.s/2, p.y-p.s/2, p.s, p.s);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  ctx.setTransform(1,0,0,1,0,0);
+  drawDangerVignette();
+  if(G.flash>0){
+    ctx.fillStyle=`rgba(255,60,60,${G.flash*0.34})`;
+    ctx.fillRect(0,0,W,H);
+  }
+
+  if(G.state==='playing' || G.state==='paused' || G.state==='dead') drawHUD();
+
+  if(G.state==='paused'){
+    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(0,0,W,H);
+  }
+}
+
+function drawPlayerEntity(){
+  const sc = 1;
+  const x = projX(player.xw, PLAYER_Z);
+  const y = projY(player.y, PLAYER_Z);
+  const blink = G.iframes>0 && Math.floor(G.t*18)%2===0;
+  if(blink && G.stumbleTimer<=0) return;
+  const runPhase = player.onGround ? G.t*baseSpeed()*0.85 : G.t*4;
+  // sprinting lean, strongest while running clean on the flat
+  const lean = player.onGround ? 0.055 : 0.02;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(lean);
+  ctx.translate(-x, -y);
+  drawSpider(x, y, sc*SPRITE_BOOST, {
+    duck: player.ducking && player.onGround,
+    run: runPhase,
+    air: !player.onGround,
+    stumble: G.stumbleTimer>0,
+    flash: G.stumbleTimer>0 && Math.floor(G.t*22)%2===0,
+    dir: 1
+  });
+  ctx.restore();
+
+}
+
+function drawHulkEntity(){
+  // He chases from behind the camera, so he gets his own anchored projection
+  // rather than the road one: near the top of the chase bar he is a small
+  // figure way down the block, and as the bar empties he grows into a slab of
+  // green filling the bottom of the screen, feet sinking toward the viewer.
+  const t   = clamp(G.hulkGap / HULK_GAP_MAX, 0, 1);   // 1 = far, 0 = on you
+  const rage= 1 - t;
+  // Sized against the player: a touch larger when far, and looming to about
+  // 1.3x the player as he closes, without swallowing the road you must read.
+  // drawHulk's art is ~56 units tall, so this scale lands him at ~1.15x the
+  // player up close and ~0.8x when far back - always the biggest thing in frame.
+  const sc  = lerp(9.4, 7.2, t);
+  const feet= lerp(H*0.90, H*0.97, t);
+  const x   = W/2 + Math.sin(G.t*3)*7*sc;
+  drawHulk(x, feet, sc, rage, G.t);
+  // dust kicked up around his feet
+  if(rage>0.25 && Math.floor(G.t*20)%2===0){
+    fx.push({x:x+rnd(-16,16)*sc, y:feet-rnd(0,6)*sc, vx:rnd(-2,2), vy:rnd(-3,-0.5),
+      life:.5, t:0, color:'rgba(160,150,140,.6)', s:rnd(3,7)*sc, kind:'puff'});
+  }
+}
+
+/* ---------- UI plumbing ---------- */
+const overlays = ['menu','shop','help','pause','over'];
+function hideAll(){ for(const id of overlays) $(id).classList.add('hidden'); }
+function show(id){ hideAll(); $(id).classList.remove('hidden'); }
+
+function menuStats(){
+  const totalSpeed = Math.round((speedMult(S.up.speed)-1)*100);
+  $('menuStats').innerHTML =
+    `BEST DISTANCE <span>${S.best} m</span>` +
+    `<span style="text-align:right">BANK <span>${S.coins} coins</span></span>` +
+    `BEST RUN COINS <span>${S.bestCoins}</span>` +
+    `<span style="text-align:right">RUNS <span>${S.totalRuns}</span></span>` +
+    `TOTAL COINS <span>${S.totalCoins}</span>` +
+    `<span style="text-align:right">SPEED BONUS <span>+${totalSpeed}%</span></span>`;
+}
+
+function renderShop(){
+  $('shopCoins').textContent = S.coins;
+  const box = $('shopItems'); box.innerHTML='';
+  for(const key of ['speed','jump','magnet']){
+    const u = UPGRADES[key], lv = S.up[key], maxed = lv >= u.max;
+    const cost = maxed ? null : u.cost(lv);
+    const el = document.createElement('div'); el.className='item';
+    el.innerHTML = `
+      <div class="ic" style="color:#ffd23f;font-size:9px">${u.icon}</div>
+      <div class="txt">
+        <div class="nm">${u.name}</div>
+        <div class="ds">${u.desc}</div>
+        <div class="lv">LV ${lv}/${u.max} &nbsp;•&nbsp; ${u.info(lv)}</div>
+      </div>`;
+    const b = document.createElement('button'); b.className='buy';
+    if(maxed){ b.textContent='MAX'; b.disabled=true; }
+    else { b.textContent = cost + ' \u2605'; b.disabled = S.coins < cost; }
+    b.onclick = ()=>{
+      if(maxed || S.coins < cost) return;
+      S.coins -= cost; S.up[key] = lv+1; persist(); sfx.buy(); renderShop(); menuStats();
+    };
+    el.appendChild(b); box.appendChild(el);
+  }
+  const sl = $('skinList'); sl.innerHTML='';
+  for(const sk of SKINS){
+    const owned = S.owned.includes(sk.id);
+    const eq = S.skin === sk.id;
+    const el = document.createElement('div');
+    el.className = 'skin' + (eq?' eq':'') + (owned?'':' lock');
+    const c = document.createElement('canvas'); c.width=90; c.height=56;
+    const cx = c.getContext('2d'); cx.imageSmoothingEnabled=false;
+    drawSpiderPreview(cx, sk);
+    el.appendChild(c);
+    const n = document.createElement('div'); n.className='sn'; n.textContent = sk.name; el.appendChild(n);
+    const p = document.createElement('div'); p.className='sp';
+    p.textContent = eq ? 'EQUIPPED' : owned ? 'EQUIP' : (sk.cost + ' \u2605');
+    el.appendChild(p);
+    el.onclick = ()=>{
+      if(owned){ S.skin = sk.id; persist(); sfx.ui(); renderShop(); }
+      else if(S.coins >= sk.cost){ S.coins -= sk.cost; S.owned.push(sk.id); S.skin = sk.id; persist(); sfx.buy(); renderShop(); menuStats(); }
+      else { el.animate([{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'none'}],{duration:200}); sfx.ui(); }
+    };
+    sl.appendChild(el);
+  }
+}
+// tiny standalone preview renderer for the shop (its own 2d context)
+function drawSpiderPreview(proxy, sk){
+  const red = sk.red, blue = sk.blue, lens = sk.lens;
+  const F2 = (x,y,w,h,col)=>{ proxy.fillStyle=col; proxy.fillRect(x,y,w,h); };
+  const sc = 1.9;
+  proxy.save(); proxy.translate(45,50); proxy.scale(sc,sc);
+  // legs
+  F2(-4,-9,4,8,blue); F2(0,-9,4,8,blue);
+  F2(-6.4,-2.2,4.4,2.6,red); F2(2,-2.2,4.4,2.6,red);
+  // torso
+  F2(-5.5,-18,11,11,blue);
+  F2(-5.5,-18,11,4,red);
+  F2(-1.6,-11.4,3.2,4.6,'#0b0713');
+  // arms
+  F2(5.4,-17,3.6,9,red); F2(-9,-17,3.6,9,red);
+  // head
+  F2(-4.4,-26,8.8,9.6,red);
+  proxy.fillStyle=lens; proxy.fillRect(-3.4,-23.8,3.4,3.2); proxy.fillRect(0.2,-23.8,3.4,3.2);
+  proxy.strokeStyle='#0b0713'; proxy.lineWidth=1;
+  proxy.strokeRect(-3.4,-23.8,3.4,3.2); proxy.strokeRect(0.2,-23.8,3.4,3.2);
+  proxy.restore();
+}
+
+/* ---------- buttons ---------- */
+function startRun(){
+  audio();
+  hideAll();
+  resetRun();
+  sfx.ui();
+}
+$('btnPlay').onclick = startRun;
+$('btnRetry').onclick = startRun;
+$('btnHome').onclick = ()=>{ G.state='menu'; hideAll(); show('menu'); menuStats(); sfx.ui(); };
+$('btnShop').onclick = ()=>{ hideAll(); show('shop'); renderShop(); sfx.ui(); };
+$('btnShopFromOver').onclick = ()=>{ hideAll(); show('shop'); renderShop(); sfx.ui(); };
+$('btnBack').onclick = ()=>{ hideAll(); show('menu'); menuStats(); sfx.ui(); };
+$('btnHelp').onclick = ()=>{ hideAll(); show('help'); sfx.ui(); };
+$('btnHelpBack').onclick = ()=>{ hideAll(); show('menu'); menuStats(); sfx.ui(); };
+$('btnResume').onclick = ()=>togglePause();
+$('btnQuit').onclick = ()=>{ G.state='menu'; hideAll(); show('menu'); menuStats(); sfx.ui(); };
+$('btnReset').onclick = ()=>{
+  if(confirm('Erase all progress, coins, upgrades and skins?')){
+    S = structuredClone(DEFAULT_SAVE); muted=false; persist(); renderShop(); menuStats(); sfx.ui();
+  }
+};
+
+/* touch pad */
+if(('ontouchstart' in window) || navigator.maxTouchPoints>0) document.body.classList.add('touch');
+document.querySelectorAll('#touch .tb').forEach(b=>{
+  const k = b.dataset.k;
+  const on = e=>{ e.preventDefault(); press(k); };
+  const off= e=>{ e.preventDefault(); release(k); };
+  b.addEventListener('touchstart',on,{passive:false});
+  b.addEventListener('touchend',off);
+  b.addEventListener('touchcancel',off);
+  b.addEventListener('mousedown',on); b.addEventListener('mouseup',off);
+});
+window.addEventListener('keyup', e=>{
+  const map={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',w:'up',s:'down',a:'left',d:'right'};
+  const c = map[e.key]; if(c) release(c);
+});
+
+/* ---------- main loop ---------- */
+let last = performance.now();
+function frame(now){
+  let dt = (now-last)/1000; last = now;
+  if(dt > 0.05) dt = 0.05;
+  if(G.state==='playing') update(dt);
+  else { G.t += dt; for(const c of coins) c.t += dt*4; }
+  render();
+  requestAnimationFrame(frame);
+}
+
+/* boot */
+S = loadSave();              // only safe here: UPGRADES now exists
+muted = S.muted;
+buildSkyline();
+menuStats();
+show('menu');
+G.state='menu';
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

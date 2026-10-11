@@ -1,0 +1,1835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>SERPENT — 3D Snake (top-down 2D or first person)</title>
+<style>
+  :root{
+    --green:#5dffab; --green-2:#2fd98a; --amber:#ffd166; --red:#ff5d73;
+    --ink:#04110c; --panel:rgba(6,22,16,.72); --line:rgba(93,255,171,.22);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;background:#03100b;color:#dff6ea}
+  body{font-family:"Avenir Next","Segoe UI",Inter,system-ui,-apple-system,sans-serif; user-select:none}
+  canvas{display:block;position:fixed;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
+  #ui{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:14px}
+
+  /* ---------- HUD ---------- */
+  header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px;
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    box-shadow:0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  .row{display:flex;align-items:baseline;gap:10px}
+  .label{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:rgba(223,246,234,.5)}
+  #score{font-size:30px;font-weight:700;line-height:1;letter-spacing:-.02em;
+    background:linear-gradient(180deg,#eafff4,#5dffab);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .stat{font-size:13px;color:rgba(223,246,234,.78);font-variant-numeric:tabular-nums}
+  .stat b{color:var(--green);font-weight:600}
+  #combo{font-size:12px;color:var(--amber);height:14px;letter-spacing:.06em}
+
+  #meters{display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+  .meter{width:170px;height:5px;border-radius:99px;background:rgba(255,255,255,.09);overflow:hidden}
+  .meter i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--green-2),var(--green));transition:width .18s ease}
+  .badge{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:rgba(223,246,234,.62);text-align:right}
+
+  footer{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+  .keys{font-size:11px;line-height:1.9;color:rgba(223,246,234,.5)}
+  kbd{
+    font:600 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#cfffe8;background:rgba(93,255,171,.12);
+    border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:3px 5px;margin-right:3px;
+  }
+  .buttons{display:flex;gap:8px;pointer-events:auto}
+  button.tog{
+    font:600 11px/1 inherit;letter-spacing:.1em;text-transform:uppercase;color:#cfffe8;cursor:pointer;
+    background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 13px;
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:.15s transform,.15s background,.15s border-color;
+  }
+  button.tog:hover{background:rgba(93,255,171,.14);border-color:rgba(93,255,171,.5)}
+  button.tog:active{transform:translateY(1px)}
+  button.tog.off{opacity:.45}
+
+  /* ---------- overlays ---------- */
+  #overlay{
+    position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;
+    background:radial-gradient(ellipse at 50% 45%, rgba(3,20,13,.55), rgba(1,7,5,.92) 70%);
+    backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);transition:opacity .28s ease;
+  }
+  #overlay.hide{opacity:0;pointer-events:none}
+  .sheet{width:min(560px,94vw);text-align:center;pointer-events:auto}
+  .title{
+    font-size:clamp(38px,9vw,68px);font-weight:800;letter-spacing:-.03em;line-height:.95;margin:0 0 6px;
+    background:linear-gradient(180deg,#f2fff8,#4bf3a2 60%,#12a06a);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 6px 26px rgba(50,220,150,.28));
+  }
+  .sub{font-size:12px;letter-spacing:.34em;text-transform:uppercase;color:rgba(223,246,234,.6);margin:0 0 22px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:22px 24px;text-align:left;
+    box-shadow:0 24px 70px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px 18px;font-size:12.5px;color:rgba(223,246,234,.82)}
+  .grid2 span{display:flex;justify-content:space-between;gap:12px;align-items:center}
+  .grid2 em{font-style:normal;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:rgba(223,246,234,.5)}
+  .dot{width:9px;height:9px;border-radius:99px;display:inline-block;margin-right:6px;vertical-align:middle}
+  .cta{
+    margin-top:20px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap
+  }
+  button.big{
+    font:700 13px/1 inherit;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;color:#04170f;
+    background:linear-gradient(180deg,#8bffc8,#35dd93);border:0;border-radius:13px;padding:16px 28px;
+    box-shadow:0 10px 30px rgba(53,221,147,.35);transition:.15s transform,.15s box-shadow
+  }
+  button.big:hover{transform:translateY(-1px);box-shadow:0 14px 38px rgba(53,221,147,.45)}
+  button.big:active{transform:translateY(1px)}
+  button.ghost{
+    font:600 12px/1 inherit;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;color:#cfffe8;
+    background:transparent;border:1px solid var(--line);border-radius:13px;padding:15px 20px
+  }
+  button.ghost:hover{background:rgba(93,255,171,.12)}
+  .score-final{display:flex;justify-content:center;gap:34px;margin:2px 0 16px}
+  .score-final div{text-align:center}
+  .score-final b{display:block;font-size:34px;font-weight:800;color:#eafff4;letter-spacing:-.02em}
+  .score-final span{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(223,246,234,.5)}
+  #toast{
+    position:fixed;left:50%;top:22%;transform:translate(-50%,0);font-weight:800;font-size:clamp(20px,4.4vw,32px);
+    letter-spacing:.02em;opacity:0;pointer-events:none;text-align:center;white-space:nowrap;
+    text-shadow:0 6px 30px rgba(0,0,0,.6)
+  }
+  #toast.show{animation:pop 1.15s cubic-bezier(.2,.9,.2,1)}
+  @keyframes pop{0%{opacity:0;transform:translate(-50%,14px) scale(.9)}18%{opacity:1;transform:translate(-50%,0) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-14px)}}
+  #flash{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .35s ease;
+    background:radial-gradient(ellipse at 50% 55%, rgba(255,255,255,.28), transparent 62%)}
+  #err{position:fixed;inset:0;display:none;place-items:center;padding:30px;text-align:center;background:#03100b;z-index:50;font-size:14px;line-height:1.7}
+  #diag{
+    position:fixed;left:10px;bottom:10px;z-index:60;max-width:min(92vw,780px);
+    font:500 11px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:#bff2da;
+    background:rgba(4,16,11,.86);border:1px solid var(--line);border-radius:10px;
+    padding:8px 11px;pointer-events:none;white-space:pre-wrap;display:none;
+  }
+  #diag.on{display:block}
+  #boot{
+    position:fixed;inset:0;z-index:80;display:grid;place-items:center;text-align:center;
+    background:#03100b;color:#9fe8c2;font:600 15px/1.8 -apple-system,Segoe UI,sans-serif;
+  }
+  #boot small{display:block;margin-top:6px;font-weight:400;font-size:12px;color:#6d9c88}
+  #bang{
+    position:fixed;left:0;right:0;top:0;z-index:70;display:none;
+    background:#2a0b12;border-bottom:1px solid #ff5d73;color:#ffd7de;
+    font:600 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+    padding:9px 12px;max-height:38vh;overflow:auto;white-space:pre-wrap;
+  }
+  #bang.on{display:block}
+  @media (max-width:620px){
+    .grid2{grid-template-columns:1fr}
+    #score{font-size:24px}
+    .meter{width:120px}
+    .keys{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="boot">loading SERPENT…<br><small>if this never goes away, the script did not run</small></div>
+<canvas id="gl"></canvas>
+
+<div id="ui">
+  <header>
+    <div class="card">
+      <div class="label">Score</div>
+      <div class="row"><div id="score">0</div></div>
+      <div id="combo">&nbsp;</div>
+    </div>
+    <div id="meters">
+      <div class="card" style="padding:9px 13px">
+        <div class="badge">Level <b id="level" style="color:var(--green)">1</b> &nbsp;·&nbsp; Length <b id="len" style="color:var(--green)">3</b></div>
+        <div class="meter" style="margin-top:7px"><i id="prog"></i></div>
+      </div>
+      <div class="badge" id="best">Best 0</div>
+    </div>
+  </header>
+
+  <footer>
+    <div class="keys">
+      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows &nbsp;steer &nbsp;·&nbsp; mouse&nbsp;drag look<br>
+      <kbd>⇧</kbd> sprint &nbsp;·&nbsp; <kbd>Space</kbd> pause &nbsp;·&nbsp; <kbd>C</kbd> 2D/1st person &nbsp;·&nbsp; <kbd>E</kbd> difficulty<br>
+      <kbd>M</kbd> mute &nbsp;·&nbsp; <kbd>R</kbd> restart &nbsp;·&nbsp; <kbd>D</kbd> diagnostics
+    </div>
+    <div class="buttons">
+      <button class="tog" id="btnMode" title="Cycle difficulty (E)">Easy</button>
+      <button class="tog" id="btnCam" title="Toggle camera view (C)">Cam: Eyes</button>
+      <button class="tog" id="btnMute" title="Toggle sound">Sound</button>
+      <button class="tog" id="btnPause" title="Pause">Pause</button>
+    </div>
+  </footer>
+</div>
+
+<div id="flash"></div>
+<div id="toast"></div>
+<div id="bang"></div>
+<div id="diag"></div>
+
+<div id="overlay">
+  <div class="sheet">
+    <h1 class="title" id="ovTitle">SERPENT</h1>
+    <p class="sub" id="ovSub">Top&nbsp;down&nbsp;·&nbsp;2D&nbsp;·&nbsp;snake</p>
+    <div class="panel" id="ovPanel">
+      <div class="grid2" id="ovGrid">
+        <span><em>Steer</em><b>WASD / Arrows</b></span>
+        <span><em>Look</em><b>Drag the view</b></span>
+        <span><em>Sprint</em><b>Hold Shift</b></span>
+        <span><em>Camera</em><b>C key</b></span>
+      </div>
+      <div class="grid2" style="margin-top:14px">
+        <span><em><i class="dot" style="background:#7dffb0;box-shadow:0 0 12px #5dffab"></i>Meat</em><b>+1 growth</b></span>
+        <span><em><i class="dot" style="background:#ffd166;box-shadow:0 0 12px #ffd166"></i>Golden</em><b>+3 growth · x2.5</b></span>
+        <span><em><i class="dot" style="background:#6ee7ff;box-shadow:0 0 12px #6ee7ff"></i>Ghost</em><b>+1 growth · phase</b></span>
+        <span><em><i class="dot" style="background:#ff5d73;box-shadow:0 0 12px #ff5d73"></i>Pit</em><b>Deadly</b></span>
+      </div>
+      <div class="cta">
+        <button class="big" id="btnGo">Start crawling</button>
+        <button class="ghost" id="btnEasy">Easy mode</button>
+        <button class="ghost" id="btn2D">Switch to 2D top view</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="err"></div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Show any failure on the page itself. Without this a silent exception just
+   looks like "it doesn't work".
+   ------------------------------------------------------------------------- */
+window.__serpentErrors = [];
+/* prove the script is actually executing */
+try { var __b = document.getElementById("boot"); if (__b) __b.parentNode.removeChild(__b); } catch (e) {}
+var __inFrame = false, __lastSent = 0;
+try { __inFrame = window.parent && window.parent !== window; } catch (e) { __inFrame = false; }
+
+/* Send a line either to the on-page banner, or to the receiver page when the
+   game is embedded in an iframe (so status can be observed from outside the
+   browser console). */
+function __serpentReport(what) {
+  var line = "[serpent] " + what;
+  try {
+    if (__inFrame) {
+      window.parent.postMessage({ serpent: line }, "*");
+    } else {
+      var b = document.getElementById("bang");
+      if (b) {
+        b.textContent = "⚠ " + what + "\n\n(press D for details)";
+        b.className = "on";
+      }
+    }
+  } catch (e) {}
+}
+function __serpentBang(what) {
+  try {
+    if (window.__serpentErrors.length < 25) window.__serpentErrors.push(what);
+    var now = Date.now();
+    if (window.__serpentErrors.length === 1 || now - __lastSent > 900) {
+      __lastSent = now;
+      __serpentReport(what);
+    }
+  } catch (e) {}
+}
+window.addEventListener("error", function (e) {
+  __serpentBang((e && e.message ? e.message : "unknown error") +
+    (e && e.filename ? "  @ line " + e.lineno + ":" + e.colno : ""));
+});
+window.addEventListener("unhandledrejection", function (e) {
+  __serpentBang("promise rejected: " + (e && e.reason ? e.reason : "?"));
+});
+try { window.__dshFullDiag = /[?#]diag/.test(location.href); } catch (e) { window.__dshFullDiag = false; }
+try {
+  var __q = (location.search || "").replace(/^\?/, "").split("&");
+  for (var qi = 0; qi < __q.length; qi++) {
+    var kv = __q[qi].split("=");
+    if (kv[0] === "top") window.__forceTop = kv[1] !== "0";
+    if (kv[0] === "easy") window.__forceEasy = kv[1] !== "0";
+    if (kv[0] === "difficulty" && kv[1]) window.__forceMode = kv[1];
+    if (kv[0] === "autostart") window.__autoStart = kv[1] !== "0";
+  }
+} catch (e) {}
+
+/* ============================================================================
+   SERPENT — a top-down / first-person 3D snake game.
+   Zero dependencies: hand-written WebGL2 renderer + game logic in one file.
+   ========================================================================== */
+(function () {
+"use strict";
+
+/* ---------------------------------------------------------------- math ---- */
+function m4() { return new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]); }
+function m4mul(a, b, o) {
+  o = o || m4();
+  for (var i = 0; i < 4; i++) {
+    var ai0=a[i], ai1=a[i+4], ai2=a[i+8], ai3=a[i+12];
+    o[i]      = ai0*b[0]  + ai1*b[1]  + ai2*b[2]  + ai3*b[3];
+    o[i+4]    = ai0*b[4]  + ai1*b[5]  + ai2*b[6]  + ai3*b[7];
+    o[i+8]    = ai0*b[8]  + ai1*b[9]  + ai2*b[10] + ai3*b[11];
+    o[i+12]   = ai0*b[12] + ai1*b[13] + ai2*b[14] + ai3*b[15];
+  }
+  return o;
+}
+function m4persp(fovy, aspect, near, far) {
+  var f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far), m = m4();
+  m[0]=f/aspect; m[5]=f; m[10]=(far+near)*nf; m[11]=-1; m[14]=2*far*near*nf; m[15]=0;
+  return m;
+}
+function m4look(eye, fwd, up, o) {
+  var fx=fwd[0], fy=fwd[1], fz=fwd[2];
+  var sx = fy*up[2]-fz*up[1], sy = fz*up[0]-fx*up[2], sz = fx*up[1]-fy*up[0];
+  var sl = Math.hypot(sx,sy,sz) || 1; sx/=sl; sy/=sl; sz/=sl;
+  var ux = sy*fz-sz*fy, uy = sz*fx-sx*fz, uz = sx*fy-sy*fx;
+  o = o || m4();
+  o[0]=sx; o[4]=sy; o[8]=sz;  o[12]=-(sx*eye[0]+sy*eye[1]+sz*eye[2]);
+  o[1]=ux; o[5]=uy; o[9]=uz;  o[13]=-(ux*eye[0]+uy*eye[1]+uz*eye[2]);
+  o[2]=-fx;o[6]=-fy;o[10]=-fz;o[14]=  fx*eye[0]+fy*eye[1]+fz*eye[2];
+  o[3]=0;  o[7]=0;  o[11]=0;  o[15]=1;
+  return o;
+}
+function m4trs(pos, rot, scl, o) {
+  var cx=Math.cos(rot[0]), sx=Math.sin(rot[0]), cy=Math.cos(rot[1]), sy=Math.sin(rot[1]),
+      cz=Math.cos(rot[2]), sz=Math.sin(rot[2]);
+  // R = Ry * Rx * Rz  (row-major product, stored row-major)
+  var r00=cy*cz+sy*sx*sz, r01=-cy*sz+sy*sx*cz, r02=sy*cx;
+  var r10=cx*sz,          r11=cx*cz,           r12=-sx;
+  var r20=-sy*cz+cy*sx*sz,r21=sy*sz+cy*sx*cz,  r22=cy*cx;
+  o = o || m4();
+  o[0]=r00*scl[0]; o[4]=r01*scl[1]; o[8]=r02*scl[2];   o[12]=pos[0];
+  o[1]=r10*scl[0]; o[5]=r11*scl[1]; o[9]=r12*scl[2];   o[13]=pos[1];
+  o[2]=r20*scl[0]; o[6]=r21*scl[1]; o[10]=r22*scl[2];  o[14]=pos[2];
+  o[3]=0; o[7]=0; o[11]=0; o[15]=1;
+  return o;
+}
+function nrmMat(m, o) { // upper-left 3x3 inverse-transpose
+  var a=m[0],b=m[1],c=m[2], d=m[4],e=m[5],f=m[6], g=m[8],h=m[9],i=m[10];
+  var A=e*i-f*h, B=f*g-d*i, C=d*h-e*g;
+  var det = a*A + b*B + c*C;
+  if (Math.abs(det) < 1e-12) det = 1e-12;
+  var id = 1/det;
+  o = o || new Float32Array(9);
+  o[0]=A*id;             o[1]=B*id;             o[2]=C*id;
+  o[3]=(c*h-b*i)*id;     o[4]=(a*i-c*g)*id;     o[5]=(b*g-a*h)*id;
+  o[6]=(b*f-c*e)*id;     o[7]=(c*d-a*f)*id;     o[8]=(a*e-b*d)*id;
+  return o;
+}
+function smax(a, b, t) { // smooth step
+  t = Math.max(0, Math.min(1, t));
+  return a + (b - a) * (t * t * (3 - 2 * t));
+}
+function lerp(a,b,t){ return a + (b-a)*t; }
+function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+function angDiff(a,b){ var d=(b-a)%(Math.PI*2); if(d>Math.PI)d-=Math.PI*2; if(d<-Math.PI)d+=Math.PI*2; return d; }
+function catmull(p0,p1,p2,p3,t,o){
+  var t2=t*t, t3=t2*t;
+  o[0]=0.5*((2*p1[0])+(-p0[0]+p2[0])*t+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*t2+(-p0[0]+3*p1[0]-3*p2[0]+p3[0])*t3);
+  o[1]=0.5*((2*p1[1])+(-p0[1]+p2[1])*t+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*t3);
+  o[2]=0.5*((2*p1[2])+(-p0[2]+p2[2])*t+(2*p0[2]-5*p1[2]+4*p2[2]-p3[2])*t2+(-p0[2]+3*p1[2]-3*p2[2]+p3[2])*t3);
+  return o;
+}
+
+/* ------------------------------------------------------------ geometry ---- */
+function geo() { return { pos: [], nrm: [], uv: [], idx: [] }; }
+function vpush(g, p, n, u, v) {
+  g.pos.push(p[0], p[1], p[2]);
+  g.nrm.push(n[0], n[1], n[2]);
+  g.uv.push(u, v);
+  return g.pos.length / 3 - 1;
+}
+function addTri(g, a, b, c, uv) {
+  var ux=b[0]-a[0], uy=b[1]-a[1], uz=b[2]-a[2];
+  var vx=c[0]-a[0], vy=c[1]-a[1], vz=c[2]-a[2];
+  var nx=uy*vz-uz*vy, ny=uz*vx-ux*vz, nz=ux*vy-uy*vx;
+  var l=Math.hypot(nx,ny,nz); if(l>1e-9){ nx/=l; ny/=l; nz/=l; }
+  var i0=vpush(g,a,[nx,ny,nz],uv?uv[0]:0,uv?uv[1]:0);
+  var i1=vpush(g,b,[nx,ny,nz],uv?uv[2]:0,uv?uv[3]:0);
+  var i2=vpush(g,c,[nx,ny,nz],uv?uv[4]:0,uv?uv[5]:0);
+  g.idx.push(i0,i1,i2);
+}
+function addQuad(g, a, b, c, d, uv) {
+  addTri(g,a,b,c, uv ? [uv[0],uv[1], uv[2],uv[3], uv[4],uv[5]] : null);
+  addTri(g,a,c,d, uv ? [uv[0],uv[1], uv[4],uv[5], uv[6],uv[7]] : null);
+}
+function flipZ(g) { for (var i = 0; i < g.nrm.length; i += 3) { g.nrm[i+2] = -g.nrm[i+2]; g.nrm[i] = -g.nrm[i]; } }
+function flipX(g) { for (var i = 0; i < g.nrm.length; i += 3) { g.nrm[i] = -g.nrm[i]; } }
+
+function makeBox(w, h, d) {
+  var g = geo(), x=w/2, y=h/2, z=d/2;
+  addQuad(g,[-x,-y, z],[ x,-y, z],[ x, y, z],[-x, y, z],[0,0,1,0,1,1]); // +Z
+  addQuad(g,[ x,-y,-z],[-x,-y,-z],[-x, y,-z],[ x, y,-z],[0,0,1,0,1,1]); // -Z
+  addQuad(g,[ x,-y, z],[ x,-y,-z],[ x, y,-z],[ x, y, z],[0,0,1,0,1,1]); // +X
+  addQuad(g,[-x,-y,-z],[-x,-y, z],[-x, y, z],[-x, y,-z],[0,0,1,0,1,1]); // -X
+  addQuad(g,[-x, y, z],[ x, y, z],[ x, y,-z],[-x, y,-z],[0,0,1,0,1,1]); // +Y
+  addQuad(g,[-x,-y,-z],[ x,-y,-z],[ x,-y, z],[-x,-y, z],[0,0,1,0,1,1]); // -Y
+  return g;
+}
+function makeSphere(r, seg, ring, sy, sz, taper) {
+  sy = sy === undefined ? 1 : sy; sz = sz === undefined ? 1 : sz; taper = taper || 0;
+  var g = geo(), grid = [];
+  for (var j = 0; j <= ring; j++) {
+    var v = j / ring, phi = v * Math.PI, row = [];
+    for (var i = 0; i <= seg; i++) {
+      var u = i / seg, th = u * Math.PI * 2;
+      var nx = Math.sin(phi) * Math.cos(th), ny = Math.cos(phi), nz = Math.sin(phi) * Math.sin(th);
+      var taperK = 1 - taper * Math.max(0, -nz);
+      row.push(vpush(g, [nx*r*sz*taperK, ny*r*sy, nz*r*sz], [nx,ny,nz], u, 1-v));
+    }
+    grid.push(row);
+  }
+  for (var jj = 0; jj < ring; jj++) for (var ii = 0; ii < seg; ii++) {
+    var a = grid[jj][ii], b = grid[jj+1][ii], c = grid[jj+1][ii+1], d = grid[jj][ii+1];
+    g.idx.push(a,b,c, a,c,d);
+  }
+  return g;
+}
+function makeCylinder(rt, rb, h, seg, capTop, capBot) {
+  var g = geo(), y = h/2, top = [], bot = [];
+  for (var i = 0; i <= seg; i++) {
+    var a = i/seg * Math.PI*2, cx = Math.cos(a), cz = Math.sin(a);
+    var nl = Math.hypot(cx, (rb-rt)/h, cz) || 1;
+    var n = [cx/nl, (rb-rt)/h/nl, cz/nl];
+    top.push(vpush(g, [cx*rt, y, cz*rt], n, i/seg, 1));
+    bot.push(vpush(g, [cx*rb, -y, cz*rb], n, i/seg, 0));
+  }
+  for (var k = 0; k < seg; k++) g.idx.push(top[k], bot[k], bot[k+1], top[k], bot[k+1], top[k+1]);
+  if (capTop) { var ct = vpush(g,[0,y,0],[0,1,0],.5,.5);
+    for (var m = 0; m < seg; m++) g.idx.push(ct, top[m+1], top[m]); }
+  if (capBot) { var cb = vpush(g,[0,-y,0],[0,-1,0],.5,.5);
+    for (var q = 0; q < seg; q++) g.idx.push(cb, bot[q], bot[q+1]); }
+  return g;
+}
+function makeDisc(r, seg) {
+  var g = geo(), c = vpush(g,[0,0,0],[0,1,0],.5,.5);
+  var ring = [];
+  for (var i = 0; i <= seg; i++) { var a = i/seg*Math.PI*2; ring.push(vpush(g,[Math.cos(a)*r,0,Math.sin(a)*r],[0,1,0],.5+Math.cos(a)*.5,.5+Math.sin(a)*.5)); }
+  for (var k = 0; k < seg; k++) g.idx.push(c, ring[k], ring[k+1]);
+  return g;
+}
+/* flat XZ quad in local space, side = "up" | "down" */
+function makePlane(size, side, uvRepeat) {
+  var g = geo(), h = size/2, n = side === "down" ? [0,-1,0] : [0,1,0], r = uvRepeat || 1;
+  var c = [[-h,0,-h],[h,0,-h],[h,0,h],[-h,0,h]];
+  var a0=vpush(g,c[0],n,0,0), a1=vpush(g,c[1],n,r,0), a2=vpush(g,c[2],n,r,r), a3=vpush(g,c[3],n,0,r);
+  if (side === "down") g.idx.push(a0,a1,a2, a0,a2,a3);
+  else                 g.idx.push(a0,a2,a1, a0,a3,a2);
+  return g;
+}
+function makeTongue() {
+  var g = geo();
+  function strip(x0, x1, z0, z1, y) {           // flat quad lying in XZ, facing up
+    var n = [0,1,0];
+    var a=vpush(g,[x0,y,z0],n,0,0), b=vpush(g,[x1,y,z0],n,1,0),
+        c=vpush(g,[x1,y,z1],n,1,1), d=vpush(g,[x0,y,z1],n,0,1);
+    g.idx.push(a,b,c, a,c,d);
+  }
+  strip(-0.035, 0.035, 0, 0.72, 0);                    // shaft
+  strip(-0.02, 0.02, 0.66, 0.86, 0);
+  strip(-0.19, -0.02, 0.84, 0.98, 0);                  // fork left
+  strip(0.02, 0.19, 0.84, 0.98, 0);                    // fork right
+  return g;
+}
+
+/* ----------------------------------------------------------- particles ---- */
+var P_CAP = 320;
+function makeParticles() {
+  var p = { pos: new Float32Array(P_CAP*3), col: new Float32Array(P_CAP*3),
+            siz: new Float32Array(P_CAP), alpha: new Float32Array(P_CAP) };
+  p.v = new Float32Array(P_CAP*3); p.life = new Float32Array(P_CAP);
+  p.max = new Float32Array(P_CAP);
+  p.pos.fill(0); p.alpha.fill(0); p.siz.fill(0); p.col.fill(0);
+  p.count = 0;
+  return p;
+}
+function spawnParticles(P, x, y, z, n, spread, col, size, life) {
+  for (var k = 0; k < n; k++) {
+    var i = P.count < P_CAP ? P.count++ : ((Math.random() * P_CAP) | 0);
+    var th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
+    var sp = (0.35 + Math.random() * 0.9) * (spread || 2);
+    P.pos[i*3] = x + (Math.random()-.5)*0.2;
+    P.pos[i*3+1] = y + (Math.random()-.5)*0.2;
+    P.pos[i*3+2] = z + (Math.random()-.5)*0.2;
+    P.v[i*3]   = Math.sin(ph)*Math.cos(th) * sp;
+    P.v[i*3+1] = Math.cos(ph) * sp * 0.9 + 0.6;
+    P.v[i*3+2] = Math.sin(ph)*Math.sin(th) * sp;
+    var t = 0.7 + Math.random() * 0.6;
+    P.col[i*3] = col[0]*t; P.col[i*3+1] = col[1]*t; P.col[i*3+2] = col[2]*t;
+    P.siz[i] = size * (0.7 + Math.random() * 0.8);
+    P.max[i] = life * (0.7 + Math.random() * 0.6);
+    P.life[i] = P.max[i];
+    P.alpha[i] = 1;
+  }
+}
+function updateParticles(P, dt) {
+  for (var i = 0; i < P.count; i++) {
+    P.life[i] -= dt;
+    if (P.life[i] <= 0) { P.alpha[i] = 0; continue; }
+    var d = Math.pow(0.12, dt);
+    P.v[i*3+1] -= 3.2 * dt;
+    P.v[i*3] *= d; P.v[i*3+1] *= Math.pow(0.5, dt); P.v[i*3+2] *= d;
+    P.pos[i*3]   += P.v[i*3]   * dt;
+    P.pos[i*3+1] += P.v[i*3+1] * dt;
+    P.pos[i*3+2] += P.v[i*3+2] * dt;
+    if (P.pos[i*3+1] < 0.03) { P.pos[i*3+1] = 0.03; P.v[i*3+1] *= -0.35; }
+    P.alpha[i] = clamp(P.life[i] / P.max[i], 0, 1);
+  }
+}
+
+/* --------------------------------------------------------------- shaders -- */
+var VS = [
+"#version 300 es",
+"precision highp float;",
+"layout(location=0) in vec3 aPos;",
+"layout(location=1) in vec3 aNrm;",
+"layout(location=2) in vec2 aUv;",
+"uniform mat4 uVP, uModel;",
+"uniform mat3 uNormal;",
+"out vec3 vN; out vec3 vW; out vec2 vUv;",
+"void main(){",
+"  vec4 w = uModel * vec4(aPos,1.0);",
+"  vW = w.xyz; vN = uNormal * aNrm; vUv = aUv;",
+"  gl_Position = uVP * w;",
+"}"
+].join("\n");
+
+var FS = [
+"#version 300 es",
+"precision highp float;",
+"in vec3 vN; in vec3 vW; in vec2 vUv;",
+"out vec4 outColor;",
+"uniform vec3 uCam, uBase, uEmis, uFogCol, uFogTint;",
+"uniform float uEmisAmt, uSpec, uShine, uFres, uFog, uSel, uAlpha, uUVs, uGlow;",
+"uniform sampler2D uGrid;",
+"#define NL 5",
+"uniform vec3 uLp[NL], uLc[NL];",
+"uniform float uLr[NL];",
+"void main(){",
+"  vec3 N = normalize(vN);",
+"  vec3 V = normalize(uCam - vW);",
+"  if (dot(N,V) < 0.0) N = -N;",
+"  vec3 col = uBase;",
+"  if (uSel > 0.5) {",
+"    vec2 t = vUv * uUVs;",
+"    float cell = floor(t.x) + floor(t.y);",
+"    cell -= 2.0 * floor(cell * 0.5);",
+"    col = mix(uBase, uBase * 3.1 + uEmis * 0.35, cell * 0.85);",
+"    vec2 f = fract(t);",
+"    vec2 d = min(f, 1.0 - f);",
+"    float edge = 1.0 - smoothstep(0.0, 0.055, min(d.x, d.y));",
+"    col = mix(col, uEmis, edge * 0.55);",
+"  }",
+"  vec3 lit = uBase * 0.055;",
+"  for (int i = 0; i < NL; i++){",
+"    vec3 Ld = uLp[i] - vW;",
+"    float dd = length(Ld);",
+"    vec3 L = Ld / max(dd, 0.0001);",
+"    float att = uLr[i] / (1.0 + 0.10*dd + 0.055*dd*dd);",
+"    float df = max(dot(N,L), 0.0);",
+"    float sp = pow(max(dot(reflect(-L,N), V), 0.0), max(uShine,1.0)) * uSpec;",
+"    lit += uLc[i] * (col * df + vec3(sp)) * att;",
+"  }",
+"  lit += uEmis * uEmisAmt;",
+"  float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0) * uFres;",
+"  lit += uEmis * fres + vec3(fres * 0.25);",
+"  float fogd = 1.0 - exp(-uFog * uFog * dot(vW-uCam, vW-uCam));",
+"  lit = mix(lit, uFogCol + uFogTint * 0.15, clamp(fogd, 0.0, 1.0));",
+"  outColor = vec4(lit * uGlow, uAlpha);",
+"}"
+].join("\n");
+
+var PVS = [
+"#version 300 es",
+"precision highp float;",
+"layout(location=0) in vec3 aP;",
+"layout(location=1) in vec3 aC;",
+"layout(location=2) in float aS;",
+"layout(location=3) in float aA;",
+"uniform mat4 uVP; uniform vec3 uRight, uUp;",
+"out vec3 vC; out float vA;",
+"void main(){",
+"  vec3 w = aP + (uRight * aS) + (uUp * aS);",
+"  vC = aC; vA = aA;",
+"  gl_Position = uVP * vec4(w,1.0);",
+"}"
+].join("\n");
+
+var PFS = [
+"#version 300 es",
+"precision highp float;",
+"in vec3 vC; in float vA;",
+"out vec4 outColor;",
+"void main(){ outColor = vec4(vC * vA * 1.6, vA * 0.85 + 0.15); }"
+].join("\n");
+
+/* ------------------------------------------------------------- renderer --- */
+function Renderer(canvas) {
+  var gl = canvas.getContext("webgl2", { antialias: true, alpha: false, preserveDrawingBuffer: true, powerPreference: "high-performance" });
+  if (!gl) return null;
+  this.gl = gl; this.canvas = canvas;
+  this.meshes = {};
+  this.meshList = [];
+  this.instances = [];
+  this.dpr = 1;
+  this.lights = []; this.nLights = 0;
+  this.w = 1; this.h = 1;
+  this.fog = 0.048; this.fogCol = [0.018, 0.055, 0.042]; this.fogTint = [0.05, 0.22, 0.15];
+  this.glow = 1;
+
+  var self = this;
+  this.prog = this._program(VS, FS);
+  this.pProg = this._program(PVS, PFS);
+  this.u = this._uniforms(this.prog);
+  this.pu = this._uniforms(this.pProg);
+
+  gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.CULL_FACE);
+  gl.cullFace(gl.BACK);
+  gl.clearColor(0.012, 0.035, 0.028, 1);
+
+  // -- grid texture (procedural, no assets) --
+  var S = 512, c = document.createElement("canvas"); c.width = c.height = S;
+  var g2 = c.getContext("2d");
+  g2.fillStyle = "#06120e"; g2.fillRect(0, 0, S, S);
+  var grd = g2.createRadialGradient(S/2, S/2, 0, S/2, S/2, S/2);
+  grd.addColorStop(0, "rgba(23,74,54,.55)"); grd.addColorStop(1, "rgba(4,14,10,.15)");
+  g2.fillStyle = grd; g2.fillRect(0, 0, S, S);
+  g2.strokeStyle = "rgba(93,255,171,.30)"; g2.lineWidth = 1.4;
+  g2.beginPath(); g2.moveTo(0.5, 0); g2.lineTo(0.5, S); g2.moveTo(0, 0.5); g2.lineTo(S, 0.5); g2.stroke();
+  g2.strokeStyle = "rgba(93,255,171,.11)"; g2.lineWidth = 1;
+  for (var q = 1; q < 4; q++) { var p = q * S / 4;
+    g2.beginPath(); g2.moveTo(p, 0); g2.lineTo(p, S); g2.moveTo(0, p); g2.lineTo(S, p); g2.stroke(); }
+  g2.fillStyle = "rgba(93,255,171,.22)"; g2.fillRect(0, 0, 2, 2); g2.fillRect(S-2, 0, 2, 2);
+  g2.fillRect(0, S-2, 2, 2); g2.fillRect(S-2, S-2, 2, 2);
+  var tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  this.gridTex = tex;
+
+  // -- particle buffers --
+  this.P = makeParticles();
+  this.pbuf = { pos: gl.createBuffer(), col: gl.createBuffer(), siz: gl.createBuffer(), alpha: gl.createBuffer() };
+  this.pVAO = gl.createVertexArray();
+  gl.bindVertexArray(this.pVAO);
+  this._attrib(this.pbuf.pos, 0, 3, this.P.pos);
+  this._attrib(this.pbuf.col, 1, 3, this.P.col);
+  this._attrib(this.pbuf.siz, 2, 1, this.P.siz);
+  this._attrib(this.pbuf.alpha, 3, 1, this.P.alpha);
+  gl.bindVertexArray(null);
+}
+Renderer.prototype._attrib = function (buf, loc, size, arr) {
+  var gl = this.gl;
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, arr, gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0);
+};
+Renderer.prototype._shader = function (type, src) {
+  var gl = this.gl, s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error("shader: " + gl.getShaderInfoLog(s));
+  return s;
+};
+Renderer.prototype._program = function (vs, fs) {
+  var gl = this.gl, p = gl.createProgram();
+  gl.attachShader(p, this._shader(gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, this._shader(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error("link: " + gl.getProgramInfoLog(p));
+  return p;
+};
+Renderer.prototype._uniforms = function (p) {
+  var gl = this.gl, o = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (var i = 0; i < n; i++) {
+    var info = gl.getActiveUniform(p, i);
+    var name = info.name.replace(/\[0\]$/, "");
+    o[name] = gl.getUniformLocation(p, info.name);
+  }
+  return o;
+};
+Renderer.prototype.mesh = function (name, g) {
+  var gl = this.gl;
+  var pos = new Float32Array(g.pos), nrm = new Float32Array(g.nrm), uv = new Float32Array(g.uv);
+  var idx = (g.pos.length / 3) > 65535 ? new Uint32Array(g.idx) : new Uint16Array(g.idx);
+  var vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  this._attrib(this._buf(pos), 0, 3, pos);
+  this._attrib(this._buf(nrm), 1, 3, nrm);
+  this._attrib(this._buf(uv), 2, 2, uv);
+  var ib = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+  gl.bindVertexArray(null);
+  var m = { vao: vao, count: g.idx.length, type: (idx instanceof Uint32Array) ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT };
+  this.meshes[name] = m; this.meshList.push(name);
+  return m;
+};
+Renderer.prototype._buf = function (arr) {
+  var gl = this.gl, b = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, b);
+  gl.bufferData(gl.ARRAY_BUFFER, arr, gl.STATIC_DRAW);
+  return b;
+};
+Renderer.prototype.resize = function () {
+  var gl = this.gl, dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var w = Math.max(1, Math.round(this.canvas.clientWidth * dpr));
+  var h = Math.max(1, Math.round(this.canvas.clientHeight * dpr));
+  if (this.canvas.width !== w || this.canvas.height !== h) {
+    this.canvas.width = w; this.canvas.height = h;
+    gl.viewport(0, 0, w, h);
+  }
+  this.aspect = this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight);
+};
+Renderer.prototype.addInstance = function (meshName) {
+  var gl = this.gl, m = this.meshes[meshName];
+  var inst = {
+    mesh: meshName, vao: m.vao, count: m.count, type: m.type,
+    model: m4(), normal: new Float32Array(9), vp: m4(), lightVP: m4(),
+    base: [1,1,1], emis: [0,0,0], emisAmt: 1, spec: 0.3, shine: 24, fres: 0, alpha: 1,
+    uvScale: 1, useGrid: true, glow: 1, visible: true, additive: false
+  };
+  this.instances.push(inst);
+  return inst;
+};
+Renderer.prototype.inst = function (name, pos, rot, scl, opts) {
+  var it = this.addInstance(name);
+  it.model = m4trs(pos || [0,0,0], rot || [0,0,0], scl || [1,1,1]);
+  if (opts) for (var k in opts) it[k] = opts[k];
+  return it;
+};
+Renderer.prototype.setLights = function (lights) {
+  this.lights = lights || []; this.nLights = Math.min(this.lights.length, 5);
+};
+Renderer.prototype.render = function (cam, vp, dt) {
+  var gl = this.gl;
+  this.stat = { tris: 0, drawn: 0, hidden: 0, add: 0 };
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  // camera basis for particle billboards
+  var f = cam.fwd, u = cam.up;
+  var rx = f[1]*u[2]-f[2]*u[1], ry = f[2]*u[0]-f[0]*u[2], rz = f[0]*u[1]-f[1]*u[0];
+  var rl = Math.hypot(rx,ry,rz) || 1; rx/=rl; ry/=rl; rz/=rl;
+  var ux = ry*f[2]-rz*f[1], uy = rz*f[0]-rx*f[2], uz = rx*f[1]-ry*f[0];
+
+  var P = this.P;
+  updateParticles(P, dt);
+  gl.bindBuffer(gl.ARRAY_BUFFER, this.pbuf.pos);   gl.bufferSubData(gl.ARRAY_BUFFER, 0, P.pos);
+  gl.bindBuffer(gl.ARRAY_BUFFER, this.pbuf.col);   gl.bufferSubData(gl.ARRAY_BUFFER, 0, P.col);
+  gl.bindBuffer(gl.ARRAY_BUFFER, this.pbuf.siz);   gl.bufferSubData(gl.ARRAY_BUFFER, 0, P.siz);
+  gl.bindBuffer(gl.ARRAY_BUFFER, this.pbuf.alpha); gl.bufferSubData(gl.ARRAY_BUFFER, 0, P.alpha);
+
+  // opaque pass
+  gl.useProgram(this.prog);
+  var U = this.u;
+  gl.uniformMatrix4fv(U.uVP, false, vp);
+  gl.uniform3fv(U.uCam, new Float32Array(cam.pos));
+  gl.uniform1f(U.uFog, this.fog);
+  gl.uniform3fv(U.uFogCol, new Float32Array(this.fogCol));
+  gl.uniform3fv(U.uFogTint, new Float32Array(this.fogTint));
+  gl.uniform1i(U.uGrid, 0);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.gridTex);
+  var lp = new Float32Array(15), lc = new Float32Array(15), lr = new Float32Array(5);
+  for (var i = 0; i < this.nLights; i++) {
+    var L = this.lights[i];
+    lp[i*3] = L.p[0]; lp[i*3+1] = L.p[1]; lp[i*3+2] = L.p[2];
+    lc[i*3] = L.c[0]; lc[i*3+1] = L.c[1]; lc[i*3+2] = L.c[2];
+    lr[i] = L.r;
+  }
+  gl.uniform3fv(U.uLp, lp); gl.uniform3fv(U.uLc, lc); gl.uniform1fv(U.uLr, lr);
+
+  gl.disable(gl.BLEND);
+  gl.depthMask(true);
+  var n = this.instances.length;
+  var stat = this.stat;
+  function drawInst(it) {
+    gl.uniformMatrix4fv(U.uModel, false, it.model);
+    gl.uniformMatrix3fv(U.uNormal, false, nrmMat(it.model, it.normal));
+    gl.uniform3fv(U.uBase, new Float32Array(it.base));
+    gl.uniform3fv(U.uEmis, new Float32Array(it.emis));
+    gl.uniform1f(U.uEmisAmt, it.emisAmt);
+    gl.uniform1f(U.uSpec, it.spec);
+    gl.uniform1f(U.uShine, it.shine);
+    gl.uniform1f(U.uFres, it.fres);
+    gl.uniform1f(U.uSel, it.useGrid ? 1 : 0);
+    gl.uniform1f(U.uUVs, it.uvScale);
+    gl.uniform1f(U.uAlpha, it.alpha);
+    gl.uniform1f(U.uGlow, it.glow);
+    gl.bindVertexArray(it.vao);
+    gl.drawElements(gl.TRIANGLES, it.count, it.type, 0);
+    stat.tris += it.count / 3; stat.drawn++;
+  }
+  // 1) fully solid geometry
+  for (var k = 0; k < n; k++) {
+    var it = this.instances[k];
+    if (!it.visible || it.additive || it.alpha < 0.995) continue;
+    drawInst(it);
+  }
+  // 2) semi-transparent solids (ghost phasing, fading orbs)
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  for (var s = 0; s < n; s++) {
+    var is = this.instances[s];
+    if (!is.visible || is.additive || is.alpha >= 0.995 || is.alpha <= 0.004) continue;
+    drawInst(is);
+  }
+  gl.disable(gl.BLEND);
+
+  // 3) additive pass (food glow, pit lips, ethereal sprites)
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+  gl.depthMask(false);
+  gl.disable(gl.CULL_FACE);
+  for (var a = 0; a < n; a++) {
+    var ia = this.instances[a];
+    if (!ia.visible || !ia.additive) continue;
+    drawInst(ia); stat.add++;
+  }
+  gl.disable(gl.BLEND);
+  gl.enable(gl.CULL_FACE);
+
+  // particles
+  gl.useProgram(this.pProg);
+  gl.uniformMatrix4fv(this.pu.uVP, false, vp);
+  gl.uniform3f(this.pu.uRight, rx, ry, rz);
+  gl.uniform3f(this.pu.uUp, ux, uy, uz);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+  gl.depthMask(false);
+  gl.bindVertexArray(this.pVAO);
+  gl.drawArrays(gl.TRIANGLES, 0, P.count * 6);
+  gl.disable(gl.BLEND);
+  gl.depthMask(true);
+  gl.bindVertexArray(null);
+  stat.particles = P.count;
+  stat.glErr = gl.getError();
+};
+
+/* ----------------------------------------------------------------- audio -- */
+function Audio() {
+  this.ctx = null; this.muted = false; this.master = null;
+}
+Audio.prototype.init = function () {
+  if (this.ctx) return;
+  try {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    this.ctx = new AC();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0.5;
+    this.master.connect(this.ctx.destination);
+  } catch (e) { this.ctx = null; }
+};
+Audio.prototype.resume = function () { if (this.ctx && this.ctx.state === "suspended") this.ctx.resume(); };
+Audio.prototype.blip = function (freq, freq2, dur, type, vol) {
+  if (!this.ctx || this.muted) return;
+  var c = this.ctx, t = c.currentTime;
+  var o = c.createOscillator(), g = c.createGain();
+  o.type = type || "sine";
+  o.frequency.setValueAtTime(freq, t);
+  if (freq2) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq2), t + dur);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime((vol || 0.25), t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+  o.connect(g); g.connect(this.master);
+  o.start(t); o.stop(t + dur + 0.03);
+};
+Audio.prototype.eat = function (combo) {
+  this.blip(420 + combo * 55, 900 + combo * 70, 0.17, "triangle", 0.3);
+  this.blip(150, 90, 0.2, "sine", 0.22);
+};
+Audio.prototype.turn = function () { this.blip(760, 620, 0.045, "triangle", 0.05); };
+Audio.prototype.levelUp = function () {
+  var s = this; [523, 659, 784, 1046].forEach(function (f, i) {
+    setTimeout(function () { s.blip(f, f * 1.01, 0.22, "triangle", 0.16); }, i * 85);
+  });
+};
+Audio.prototype.die = function () {
+  this.blip(320, 60, 0.7, "sawtooth", 0.28);
+  this.blip(160, 40, 0.9, "square", 0.14);
+};
+Audio.prototype.start = function () {
+  var s = this; [392, 587, 784].forEach(function (f, i) {
+    setTimeout(function () { s.blip(f, f, 0.16, "triangle", 0.18); }, i * 70);
+  });
+};
+
+/* ------------------------------------------------------------------ game -- */
+var DIRS = {
+  "0,-1": [0,-1,  0], "0,1": [0,1,  Math.PI],
+  "1,0":  [1,0,  Math.PI/2], "-1,0": [-1,0, -Math.PI/2]
+};
+function dirKey(dx, dz) { return dx + "," + dz; }
+function headingOf(dx, dz) { var d = DIRS[dirKey(dx,dz)]; return d ? d[2] : 0; }
+
+var canvas = document.getElementById("gl");
+var errEl = document.getElementById("err");
+function fatal(msg) {
+  errEl.style.display = "grid";
+  errEl.innerHTML = "<div><b style='font-size:18px'>Can't start the 3D view</b><br><br>" + msg + "</div>";
+  document.getElementById("overlay").classList.add("hide");
+}
+
+var R;
+try {
+  R = new Renderer(canvas);
+  if (!R) { fatal("This browser reported no <b>WebGL2</b> context.<br>Try Safari 15+, Chrome, Edge or Firefox with hardware acceleration enabled."); return; }
+} catch (e) { fatal(String(e && e.message || e)); return; }
+
+/* -- build all meshes once -- */
+var M = {};
+M.sphere = R.mesh("sphere", makeSphere(1, 20, 14));
+M.head   = R.mesh("head", makeSphere(1, 22, 16, 0.78, 1.06, 0.42));
+M.sphereLo = R.mesh("sphereLo", makeSphere(1, 12, 8));
+M.box    = R.mesh("box", makeBox(1, 1, 1));
+M.pit    = R.mesh("pit", makeCylinder(1, 0.9, 1, 26, false, true));
+M.ring   = R.mesh("ring", makeDisc(1, 30));
+M.plane  = R.mesh("plane", makePlane(1, "up", 1));
+M.wall   = R.mesh("wall", makeBox(1, 1, 0.55));
+M.tongue = R.mesh("tongue", makeTongue());
+M.star   = R.mesh("star", makeSphere(1, 6, 4));
+
+/* -- arena spec -- */
+var GRID = 24, HALF = GRID / 2, FLOOR = GRID, CELL = 1, START_LEN = 3;
+var BASE_STEP = 0.115;   // seconds per cell at 1x speed
+var C0 = (GRID - 1) / 2;
+function cx(i) { return i - C0; }
+function ixOf(wx) { return Math.round(wx + C0); }
+function worldOf(ix, iz) { return [cx(ix), 0, cx(iz)]; }
+
+var SNAKE_RGB = [0.09, 0.62, 0.34];   // the snake's one flat colour
+var PAL = {
+  floor:   [0.035, 0.085, 0.065],
+  wall:    [0.05, 0.11, 0.09],
+  snake:   [0.085, 0.62, 0.36],
+  snakeHi: [0.35, 1.0, 0.62],
+  head:    [0.13, 0.82, 0.46],
+  emerald: [0.15, 1.0, 0.55],
+  amber:   [1.0, 0.78, 0.32],
+  cyan:    [0.35, 0.9, 1.0],
+  poison:  [0.55, 1.0, 0.42],
+  danger:  [1.0, 0.28, 0.36],
+  eye:     [1.0, 0.86, 0.34]
+};
+
+/* -- static scenery -- */
+var staticOneShot = [];
+(function buildScenery() {
+  // floor
+  var fl = R.inst("plane", [0, 0, 0], [0,0,0], [FLOOR, 1, FLOOR],
+    { base: PAL.floor, emis: [0.10,0.45,0.30], emisAmt: 0.30, useGrid: true, uvScale: GRID,
+      spec: 0.10, shine: 30, fres: 0.0 });
+  fl.glow = 1;
+  // walls
+  var wallH = 0.95;
+  for (var s = 0; s < 4; s++) {
+    var horiz = s < 2, sign = (s % 2 === 0) ? 1 : -1, len = FLOOR + 0.55;
+    var pos = horiz ? [0, wallH/2, sign * (HALF + 0.28)] : [sign * (HALF + 0.28), wallH/2, 0];
+    var scl = horiz ? [len, wallH, 1] : [1, wallH, len];
+    var nit = R.inst("wall", pos, [0,0,0], scl,
+      { base: PAL.wall, emis: [0.10,0.5,0.34], emisAmt: 0.22, useGrid: true,
+        uvScale: horiz ? GRID : GRID, spec: 0.14, shine: 40, fres: 0.35 });
+    // glow trim along the top edge
+    var trimPos = horiz ? [0, wallH + 0.015, sign * (HALF + 0.28)] : [sign * (HALF + 0.28), wallH + 0.015, 0];
+    var trimScl = horiz ? [len, 1, 0.62] : [0.62, 1, len];
+    var trim = R.inst("wall", trimPos, [0,0,0], trimScl,
+      { base: [0,0,0], emis: PAL.emerald, emisAmt: 1.25, additive: true, alpha: 0.5, useGrid: false, glow: 1 });
+    staticOneShot.push(trim);
+  }
+  // distant stars / spores for parallax
+  for (var i = 0; i < 70; i++) {
+    var a = Math.random() * Math.PI * 2, rad = 14 + Math.random() * 30;
+    var y = 2 + Math.random() * 22;
+    var sz = 0.04 + Math.random() * 0.09;
+    var st = R.inst("star", [Math.cos(a)*rad, y, Math.sin(a)*rad], [0,0,0], [sz,sz,sz],
+      { base:[0,0,0], emis: Math.random() < 0.5 ? [0.4,1,0.75] : [0.5,0.85,1], emisAmt: 1.1, additive: true, alpha: 0.55, useGrid: false });
+    staticOneShot.push(st);
+  }
+})();
+
+/* -- dynamic pools -- */
+var snakeSegs = [];   // pooled body instances
+var foodInsts = {};   // id -> {glow, orb, ring, light}
+var pitInsts = [];    // pooled
+var headParts = null;
+
+function getSeg(i) {
+  while (snakeSegs.length <= i) {
+    var s = R.inst("sphere", [0,-99,0], [0,0,0], [0.2,0.2,0.2], {
+      base: PAL.snake, emis: PAL.emerald, emisAmt: 0.16, spec: 0.45, shine: 30, fres: 0.35, useGrid: false
+    });
+    snakeSegs.push(s);
+  }
+  return snakeSegs[i];
+}
+function killSegs(from) { for (var i = from; i < snakeSegs.length; i++) snakeSegs[i].visible = false; }
+
+function makeFoodInst() {
+  var glow = R.inst("sphere", [0,0,0], [0,0,0], [0.6,0.6,0.6],
+    { base:[0,0,0], emis:[1,1,1], emisAmt: 1.0, additive: true, alpha: 0.42, useGrid:false, fres: 0.9 });
+  var orb = R.inst("sphereLo", [0,0,0], [0,0,0], [0.27,0.27,0.27],
+    { base:[0.1,0.4,0.25], emis:[1,1,1], emisAmt: 0.9, spec: 0.9, shine: 60, fres: 0.6, useGrid:false });
+  var ring = R.inst("ring", [0,0,0], [0,0,0], [0.55,1,0.55],
+    { base:[0,0,0], emis:[1,1,1], emisAmt: 1.1, additive: true, alpha: 0.35, useGrid:false });
+  return { glow: glow, orb: orb, ring: ring, light: { p: [0,1,0], c: [1,1,1], r: 1 } };
+}
+function makePitInst() {
+  var inner = R.inst("pit", [0,-0.5,0], [0,0,0], [0.44,1,0.44],
+    { base:[0.015,0.02,0.02], emis:[0,0,0], emisAmt: 0, spec: 0.0, fres: 0.0, useGrid:false });
+  var lip = R.inst("ring", [0,0.012,0], [0,0,0], [0.5,1,0.5],
+    { base:[0,0,0], emis: PAL.danger, emisAmt: 1.3, additive:true, alpha:0.5, useGrid:false });
+  var haze = R.inst("sphereLo", [0,0.06,0], [0,0,0], [0.42,0.1,0.42],
+    { base:[0,0,0], emis: PAL.danger, emisAmt: 0.8, additive:true, alpha:0.3, useGrid:false });
+  return { inner: inner, lip: lip, haze: haze };
+}
+function getPit(i) { while (pitInsts.length <= i) pitInsts.push(makePitInst()); return pitInsts[i]; }
+
+/* -- head rig -- */
+(function buildHead() {
+  var skin = R.inst("head", [0,0.5,0], [0,0,0], [0.30,0.30,0.30], {
+    base: PAL.head, emis: PAL.emerald, emisAmt: 0.22, spec: 0.75, shine: 70, fres: 0.55, useGrid: false });
+  var jaw = R.inst("head", [0,0,0], [0.35,0,0], [0.235,0.15,0.26], {
+    base: [0.05,0.42,0.25], emis: PAL.emerald, emisAmt: 0.12, spec: 0.5, shine: 40, fres: 0.4, useGrid: false });
+  var eyeL = R.inst("sphereLo", [0,0,0], [0,0,0], [0.075,0.075,0.075],
+    { base:[0.35,0.28,0.05], emis: PAL.eye, emisAmt: 1.5, spec: 1.0, shine: 90, useGrid:false });
+  var eyeR = R.inst("sphereLo", [0,0,0], [0,0,0], [0.075,0.075,0.075],
+    { base:[0.35,0.28,0.05], emis: PAL.eye, emisAmt: 1.5, spec: 1.0, shine: 90, useGrid:false });
+  var pupL = R.inst("sphereLo", [0,0,0], [0,0,0], [0.036,0.036,0.02],
+    { base:[0.02,0.02,0.03], emis:[0,0,0], emisAmt:0, spec:1.0, shine:110, useGrid:false });
+  var pupR = R.inst("sphereLo", [0,0,0], [0,0,0], [0.036,0.036,0.02],
+    { base:[0.02,0.02,0.03], emis:[0,0,0], emisAmt:0, spec:1.0, shine:110, useGrid:false });
+  var tongue = R.inst("tongue", [0,0,0], [0,0,0], [0.5,1,0.5],
+    { base:[0.75,0.12,0.3], emis:[1,0.15,0.35], emisAmt:0.5, spec:0.4, shine:20, fres:0.2, useGrid:false });
+  headParts = { skin: skin, jaw: jaw, eyeL: eyeL, eyeR: eyeR, pupL: pupL, pupR: pupR, tongue: tongue };
+})();
+
+/* -- game state -- */
+var G, cam;
+/* top: true renders a locked overhead 2D-style board (no roll, no bank, whole
+   arena visible) — the readable way to play if first person feels confusing. */
+var VIEWS = [
+  { name: "Top",    top: true,  camUp: 23.5, pitch: -1.5707, fov: 1.02, headBack: 0.40, headUp: 0.52 },
+  { name: "Eyes",   camBack: -0.02, camUp: 0.60, pitch: -0.20, fov: 1.36, headBack: 0.40, headUp: 0.52 },
+  { name: "Chase",  camBack:  2.60, camUp: 1.85, pitch: -0.46, fov: 1.20, headBack: 0.40, headUp: 0.52 },
+  { name: "High",   camBack:  1.10, camUp: 4.40, pitch: -1.12, fov: 1.16, headBack: 0.40, headUp: 0.52 }
+];
+var viewIdx = 0;
+/* difficulty: speed multiplier, pit cap and how eagerly a turn is accepted */
+var MODES = {
+  chill:  { label: "Easy",   speed: 1.65, pitMax: 0, turnGap: 0.14, accel: 5.4 },
+  normal: { label: "Normal", speed: 1.00, pitMax: 9, turnGap: 0.075, accel: 7.5 },
+  fast:   { label: "Fast",   speed: 0.72, pitMax: 12, turnGap: 0.06, accel: 9.0 }
+};
+var modeName = "chill";
+var audio = new Audio();
+var best = 0;
+try { best = parseInt(localStorage.getItem("serpent.best") || "0", 10) || 0; } catch (e) {}
+try { audio.muted = localStorage.getItem("serpent.muted") === "1"; } catch (e) {}
+try { if (MODES[localStorage.getItem("serpent.mode")]) modeName = localStorage.getItem("serpent.mode"); } catch (e) {}
+function mode() { return MODES[modeName]; }
+
+var el = {
+  score: document.getElementById("score"), combo: document.getElementById("combo"),
+  level: document.getElementById("level"), len: document.getElementById("len"),
+  prog: document.getElementById("prog"), best: document.getElementById("best"),
+  overlay: document.getElementById("overlay"), ovTitle: document.getElementById("ovTitle"),
+  ovSub: document.getElementById("ovSub"), ovGrid: document.getElementById("ovGrid"),
+  ovPanel: document.getElementById("ovPanel"),
+  btnGo: document.getElementById("btnGo"),
+  btnCam: document.getElementById("btnCam"), btnMute: document.getElementById("btnMute"),
+  btnPause: document.getElementById("btnPause"), btnMode: document.getElementById("btnMode"),
+  btnEasy: document.getElementById("btnEasy"), btn2D: document.getElementById("btn2D"),
+  toast: document.getElementById("toast"), flash: document.getElementById("flash")
+};
+
+function newGame() {
+  G = {
+    state: "ready",              // ready | run | pause | dead
+    trail: [],                   // world waypoints, head first
+    limit: START_LEN,            // max waypoints == ceil(snakeLen)
+    dir: [0, -1],                // heading
+    pendingTurn: null,
+    lastTurn: -99,
+    occ: {},                     // "ix,iz" -> true (body)
+    snakeLen: START_LEN,
+    score: 0, level: 1, eaten: 0,
+    combo: 0, comboT: 0,
+    food: [], pits: [],
+    stepProg: 0, stepDur: BASE_STEP * mode().speed, sprint: false,
+    turnRate: 0, bank: 0, headYaw: 0, targetYaw: 0,
+    pitchOff: 0, yawOff: 0, lookT: 0,
+    shake: 0, flashT: 0, dieT: 0, dieCause: "",
+    time: 0, munch: 0, ghostT: 0, phasing: false, prevHead: null
+  };
+  var startZ = 6;
+  for (var i = 0; i < START_LEN; i++) {
+    var ix = 12, iz = startZ + i;
+    G.trail.push(worldOf(ix, iz));
+    G.occ[ix + "," + iz] = true;
+  }
+  G.limit = START_LEN;
+  G.targetYaw = headingOf(0, -1);
+  G.headYaw = G.targetYaw;
+  if (mode().pitMax > 0) for (var p = 0; p < Math.min(3, mode().pitMax); p++) addPit();
+  seedFood();
+  ensureFood();
+  syncHUD();
+}
+
+function occKey(ix, iz) { return ix + "," + iz; }
+function inBounds(ix, iz) { return ix >= 0 && iz >= 0 && ix < GRID && iz < GRID; }
+function isFree(ix, iz) {
+  if (!inBounds(ix, iz)) return false;
+  if (G.occ[occKey(ix, iz)]) return false;
+  for (var i = 0; i < G.food.length; i++) { var f = G.food[i]; if (f.c[0] === ix && f.c[1] === iz) return false; }
+  for (var p = 0; p < G.pits.length; p++) { var q = G.pits[p]; if (q[0] === ix && q[1] === iz) return false; }
+  return true;
+}
+function randomFree() {
+  var free = [];
+  for (var iz = 0; iz < GRID; iz++) for (var ix = 0; ix < GRID; ix++) if (isFree(ix, iz)) free.push([ix, iz]);
+  if (!free.length) return null;
+  return free[(Math.random() * free.length) | 0];
+}
+function addPit() {
+  if (!G) return;
+  var head = G.trail[0];
+  var hx = ixOf(head[0]), hz = ixOf(head[2]);
+  var tries = 0, fallback = null;
+  while (tries++ < 400) {
+    var c = randomFree();
+    if (!c) return;
+    if (Math.max(Math.abs(c[0] - hx), Math.abs(c[1] - hz)) < 6) continue;   // keep clear of the snake
+    var ok = true;
+    for (var i = 0; i < G.trail.length && ok; i++) {
+      var tx = ixOf(G.trail[i][0]), tz = ixOf(G.trail[i][2]);
+      if (Math.max(Math.abs(c[0] - tx), Math.abs(c[1] - tz)) < 4) ok = false;
+    }
+    if (ok && !fallback) fallback = c;
+    if (ok && c[1] < 9) { G.pits.push(c); return; }   // prefer the far side so the opening is calm
+  }
+  if (fallback) G.pits.push(fallback);
+}
+function spawnFood(type, near) {
+  var c = null;
+  if (near && Math.random() < 0.35) {
+    for (var t = 0; t < 40 && !c; t++) {
+      var ix = near[0] + ((Math.random()*5)|0) - 2, iz = near[1] + ((Math.random()*5)|0) - 2;
+      if (isFree(ix, iz)) c = [ix, iz];
+    }
+  }
+  if (!c) c = randomFree();
+  if (!c) return;
+  G.food.push({
+    c: c, type: type, id: Math.random().toString(36).slice(2),
+    age: 0, born: G.time, ttl: type === "gold" ? 16 : (type === "ghost" ? 8.5 : Infinity),
+    eatT: 0, phase: Math.random() * 6.28
+  });
+}
+function seedFood() {
+  spawnFood("meat");
+  if (Math.random() < 0.55) spawnFood("meat");
+  if (Math.random() < 0.3) spawnFood("gold");
+}
+function ensureFood() { if (!G.food.some(function (f) { return f.type === "meat"; })) spawnFood("meat"); }
+
+function syncHUD() {
+  el.score.textContent = G.score;
+  el.best.textContent = "Best " + best;
+  el.level.textContent = G.level;
+  el.len.textContent = G.snakeLen;
+  el.prog.style.width = Math.round((G.eaten % 5) / 5 * 100) + "%";
+}
+function toast(text, color) {
+  el.toast.innerHTML = "<span style='color:" + (color || "#bfffe0") + "'>" + text + "</span>";
+  el.toast.classList.remove("show");
+  void el.toast.offsetWidth;
+  el.toast.classList.add("show");
+}
+function screenFlash(strength, col) {
+  el.flash.style.background = "radial-gradient(ellipse at 50% 55%, " + col + ", transparent 62%)";
+  el.flash.style.opacity = String(strength);
+  setTimeout(function () { el.flash.style.opacity = "0"; }, 60);
+}
+
+/* -- actions -- */
+var VIEW_BTN = ["Cam: Top", "Cam: Eyes", "Cam: Chase", "Cam: High"];
+function setView(i) {
+  viewIdx = (i + VIEWS.length) % VIEWS.length;
+  var n = VIEWS[viewIdx].name;
+  el.btnCam.textContent = "Cam: " + n;
+  if (el.btn2D) el.btn2D.textContent = VIEWS[viewIdx].top ? "Switch to 1st person" : "Switch to 2D top view";
+  try { localStorage.setItem("serpent.view", String(viewIdx)); } catch (e) {}
+}
+function toggleTop() { setView(VIEWS[viewIdx].top ? 1 : 0); }
+function setMode(name) {
+  if (!MODES[name]) return;
+  modeName = name;
+  if (el.btnMode) el.btnMode.textContent = "Mode: " + mode().label;
+  if (el.btnEasy) el.btnEasy.textContent = modeName === "chill" ? "Mode: Easy ✓" : "Easy mode";
+  try { localStorage.setItem("serpent.mode", modeName); } catch (e) {}
+  // speed/pit caps are read at spawn, so refresh a game that isn't in progress
+  if (G && (G.state === "ready" || G.state === "dead")) newGame();
+}
+function cycleMode() {
+  var keys = ["chill", "normal", "fast"];
+  setMode(keys[(keys.indexOf(modeName) + 1) % keys.length]);
+  toast("MODE: " + mode().label.toUpperCase(), "#7dffb0");
+}
+function toggleMute() {
+  audio.muted = !audio.muted;
+  el.btnMute.classList.toggle("off", audio.muted);
+  el.btnMute.textContent = audio.muted ? "Muted" : "Sound";
+  try { localStorage.setItem("serpent.muted", audio.muted ? "1" : "0"); } catch (e) {}
+}
+function start() {
+  audio.init(); audio.resume();
+  if (G.state === "ready" || G.state === "dead") { newGame(); }
+  G.state = "run";
+  el.overlay.classList.add("hide");
+  el.btnPause.textContent = "Pause";
+  audio.start();
+}
+function pause(on) {
+  if (G.state === "run" && on !== false) {
+    G.state = "pause";
+    showSheet("Paused", "Take a breath",
+      "<div class='grid2'><span><em>Steer</em><b>WASD / Arrows</b></span><span><em>Resume</em><b>Space / Enter</b></span>" +
+      "<span><em>Sprint</em><b>Hold Shift</b></span><span><em>Camera</em><b>C key</b></span></div>",
+      "Resume", "Restart");
+    el.btnPause.textContent = "Resume";
+  } else if (G.state === "pause") {
+    G.state = "run";
+    el.overlay.classList.add("hide");
+    el.btnPause.textContent = "Pause";
+    audio.resume();
+  }
+}
+function startTurn(dx, dz) {
+  if (G.state !== "run") return;
+  if (dx === -G.dir[0] && dz === -G.dir[1]) return;      // no 180 mid-run
+  if (dx === G.dir[0] && dz === G.dir[1]) return;        // already heading there
+  if (G.time - G.lastTurn < mode().turnGap) return;
+  G.pendingTurn = [dx, dz];
+  G.lastTurn = G.time;
+  G.targetYaw += angDiff(G.targetYaw, headingOf(dx, dz));
+  audio.turn();
+}
+function doTurn() {
+  var t = G.pendingTurn; if (!t) return;
+  G.pendingTurn = null;
+  if (t[0] === G.dir[0] && t[1] === G.dir[1]) return;
+  // Direction only. The in-flight step still finishes at the cell it was
+  // already heading for; the new heading takes over on the next tick. Moving
+  // the head here (a mid-step corner cut) advanced the body an extra cell per
+  // turn, which desynced the trail from the real occupied cells.
+  G.dir = t;
+}
+
+/* -- one discrete step -- */
+function step() {
+  var h = G.trail[0];
+  var ix = ixOf(h[0]), iz = ixOf(h[2]);
+  var nx = ix + G.dir[0], nz = iz + G.dir[1];
+
+  // wall
+  if (!inBounds(nx, nz)) return die("wall");
+  // pits
+  for (var p = 0; p < G.pits.length; p++) if (G.pits[p][0] === nx && G.pits[p][1] === nz) return die("pit");
+  // self — the tail cell is only safe when the body is done growing, because
+  // that is the only time the tail actually vacates this tick
+  if (!G.phasing && G.occ[occKey(nx, nz)]) {
+    var tail = G.trail[G.trail.length - 1];
+    var tix = ixOf(tail[0]), tiz = ixOf(tail[2]);
+    var tailLeaves = (nx === tix && nz === tiz) && G.trail.length >= G.limit;
+    if (!tailLeaves) return die("self");
+  }
+
+  var pos = worldOf(nx, nz);
+  if (G.trail.length) G.prevHead = G.trail[0];   // glide starts from the cell we are leaving
+  G.trail.unshift(pos);
+  G.occ[occKey(nx, nz)] = true;
+
+  // food at the new cell?
+  var ate = -1;
+  for (var i = 0; i < G.food.length; i++) if (G.food[i].c[0] === nx && G.food[i].c[1] === nz) { ate = i; break; }
+  if (ate >= 0) {
+    var f = G.food[ate];
+    var mult = f.type === "gold" ? 2.5 : 1;
+    var grow = f.type === "gold" ? 3 : 1;
+    var pts = Math.round((1 + G.level * 0.1) * mult * 10);
+    G.combo++; G.comboT = 3.0;
+    var bonus = G.combo > 1 ? (G.combo - 1) * 2 : 0;
+    G.score += pts + bonus;
+    G.snakeLen += grow; G.limit = Math.ceil(G.snakeLen);
+    G.eaten++;
+    if (f.type === "ghost") { G.ghostT = 4.5; toast("GHOST — phasing!", "#6ee7ff"); }
+    if (G.combo > 1) toast("COMBO x" + G.combo, "#ffd166");
+    G.food.splice(ate, 1);
+    G.munch = 1; G.shake = Math.min(0.05, 0.02 + G.combo * 0.006);
+    G.flashT = 1;
+    audio.eat(Math.min(G.combo, 8));
+    spawnParticles(R.P, pos[0], 0.45, pos[2], 16,
+      f.type === "gold" ? 3.2 : 2.2,
+      f.type === "gold" ? [1.0, 0.78, 0.3] : (f.type === "ghost" ? [0.4, 0.9, 1.0] : [0.35, 1.0, 0.62]),
+      0.075, f.type === "gold" ? 0.9 : 0.65);
+    var nl = 1 + Math.floor(G.eaten / 5);
+    if (nl > G.level) {
+      G.level = nl;
+      G.stepDur = Math.max(BASE_STEP * mode().speed * 0.62, (BASE_STEP - (G.level - 1) * 0.006) * mode().speed);
+      toast("LEVEL " + G.level, "#7dffb0");
+      audio.levelUp();
+      if (G.level % 2 === 0 && G.pits.length < mode().pitMax) addPit();
+      screenFlash(0.22, "rgba(120,255,190,.35)");
+    }
+    ensureFood();
+    if (Math.random() < (f.type === "gold" ? 0.55 : 0.22)) spawnFood(Math.random() < 0.35 ? "gold" : "meat", [nx, nz]);
+    if (Math.random() < 0.05) spawnFood("ghost", [nx, nz]);
+    syncHUD();
+  }
+
+  // keep the trail one waypoint per body cell; eating raises G.limit, so the
+  // tail simply stops being dropped for as many ticks as the snake grew
+  if (G.trail.length > G.limit) {
+    var t = G.trail.pop();
+    var tx = ixOf(t[0]), tz = ixOf(t[2]);
+    delete G.occ[occKey(tx, tz)];
+  }
+  return false;
+}
+function die(cause) {
+  G.state = "dead";
+  G.dieT = 0; G.dieCause = cause;
+  G.shake = 0.14;
+  audio.die();
+  var h = G.trail[0];
+  spawnParticles(R.P, h[0], 0.5, h[2], 40, 3.4,
+    cause === "pit" ? [1, 0.3, 0.35] : [1, 0.55, 0.4], 0.09, 1.1);
+  if (G.score > best) {
+    best = G.score;
+    try { localStorage.setItem("serpent.best", String(best)); } catch (e) {}
+  }
+  syncHUD();
+  setTimeout(showDead, 620);
+  return true;
+}
+function showDead() {
+  if (G.state !== "dead") return;
+  var cause = G.dieCause === "wall" ? "You kissed the wall" : (G.dieCause === "pit" ? "A pit swallowed you" : "You ate yourself");
+  var rank = G.snakeLen >= 42 ? "Leviathan" : G.snakeLen >= 30 ? "Anaconda" : G.snakeLen >= 20 ? "Constrictor" :
+             G.snakeLen >= 12 ? "Viper" : G.snakeLen >= 7 ? "Grass snake" : "Hatchling";
+  showSheet("Game over", cause,
+    "<div class='score-final'>" +
+      "<div><b>" + G.score + "</b><span>Score</span></div>" +
+      "<div><b>" + G.snakeLen + "</b><span>Length</span></div>" +
+      "<div><b>" + G.level + "</b><span>Level</span></div>" +
+    "</div>" +
+    "<div class='grid2'><span><em>Rank</em><b>" + rank + "</b></span>" +
+    "<span><em>Best</em><b>" + best + "</b></span>" +
+    "<span><em>Orbs eaten</em><b>" + G.eaten + "</b></span>" +
+    "<span><em>Try again</em><b>R / Enter</b></span></div>",
+    "Crawl again", "Camera: " + VIEWS[viewIdx].name);
+  if (G.score >= best && G.score > 0) toast("NEW BEST", "#ffd166");
+}
+function showSheet(title, sub, html, goLabel, altLabel) {
+  el.ovTitle.textContent = title;
+  el.ovSub.textContent = sub;
+  el.ovGrid.innerHTML = html;
+  el.btnGo.textContent = goLabel || "Start";
+  if (el.btn2D) el.btn2D.textContent = altLabel ||
+    (VIEWS[viewIdx].top ? "Switch to 1st person" : "Switch to 2D top view");
+  el.overlay.classList.remove("hide");
+}
+
+/* ------------------------------------------------------------------ input -- */
+var keys = {};
+window.addEventListener("keydown", function (e) {
+  var k = e.key;
+  if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," ","Spacebar"].indexOf(k) >= 0) e.preventDefault();
+  if (e.repeat) { keys[k] = true; return; }
+  keys[k] = true;
+  var lk = k.length === 1 ? k.toLowerCase() : k;
+  if (lk === "arrowleft" || lk === "a") startTurn(-1, 0);
+  else if (lk === "arrowright" || lk === "d") startTurn(1, 0);
+  else if (lk === "arrowup" || lk === "w") startTurn(0, -1);
+  else if (lk === "arrowdown" || lk === "s") startTurn(0, 1);
+  else if (lk === "c") setView(viewIdx + 1);
+  else if (lk === "e") cycleMode();
+  else if (lk === "m") toggleMute();
+  else if (lk === "d") { window.__dshFullDiag = !window.__dshFullDiag; var dg2 = document.getElementById("diag"); if (dg2) dg2.className = window.__dshFullDiag ? "on" : ""; }
+  else if (lk === "r") { newGame(); start(); }
+  else if (lk === " " || lk === "enter" || lk === "spacebar") {
+    if (G.state === "ready" || G.state === "dead") start(); else pause();
+  } else if (lk === "escape") { if (G.state === "run") pause(true); }
+}, { passive: false });
+window.addEventListener("keyup", function (e) { keys[e.key] = false; });
+
+/* pointer look */
+var drag = null;
+canvas.addEventListener("pointerdown", function (e) {
+  drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
+  canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+  audio.init(); audio.resume();
+});
+canvas.addEventListener("pointermove", function (e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  drag.x = e.clientX; drag.y = e.clientY;
+  G.yawOff += dx * 0.0042;
+  G.pitchOff = clamp(G.pitchOff + dy * 0.0030, -0.45, 0.75);
+  G.lookT = 0.85;
+});
+function endDrag(e) { if (drag && (!e || e.pointerId === drag.id)) drag = null; }
+canvas.addEventListener("pointerup", endDrag);
+canvas.addEventListener("pointercancel", endDrag);
+canvas.addEventListener("pointerleave", endDrag);
+canvas.addEventListener("wheel", function (e) {
+  G.pitchOff = clamp(G.pitchOff + Math.sign(e.deltaY) * 0.06, -0.45, 0.75);
+  G.lookT = 0.5;
+  e.preventDefault();
+}, { passive: false });
+
+window.addEventListener("blur", function () { if (G.state === "run") pause(true); });
+document.addEventListener("visibilitychange", function () { if (document.hidden && G.state === "run") pause(true); });
+
+el.btnGo.addEventListener("click", function () {
+  if (G.state === "pause") pause(false); else start();
+});
+if (el.btn2D) el.btn2D.addEventListener("click", toggleTop);
+// the persistent button flips straight between 2D and first person
+el.btnCam.addEventListener("click", toggleTop);
+if (el.btnEasy) el.btnEasy.addEventListener("click", function () {
+  // "Easy mode" means: chill speed, no pits, and see the whole board. Starting a
+  // fresh game here makes the change visible immediately instead of silently
+  // swapping the rules under a run that is already in progress.
+  setMode(modeName === "chill" ? "normal" : "chill");
+  setView(0);
+  newGame();
+  start();
+});
+el.btnMode.addEventListener("click", cycleMode);
+el.btnMute.addEventListener("click", function () { audio.init(); toggleMute(); });
+el.btnPause.addEventListener("click", function () { audio.init(); pause(); });
+
+/* ------------------------------------------------------------------ camera -- */
+function camPosOf(view, head, yaw, pitch, roll) {
+  var f = [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch)];
+  var p = [head[0] - f[0] * view.camBack, head[1] + view.camUp - f[1] * view.camBack, head[2] - f[2] * view.camBack];
+  return p;
+}
+function camFwd(yaw, pitch) {
+  return [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch)];
+}
+function camUpVec(yaw, pitch, roll) {
+  var f = camFwd(yaw, pitch);
+  var r = [f[1]*0-f[2]*1, f[2]*0-f[0]*0, f[0]*1-f[1]*0];  // f x (0,1,0)
+  r = [-f[2], 0, f[0]];
+  var rl = Math.hypot(r[0], r[1], r[2]) || 1; r[0]/=rl; r[1]/=rl; r[2]/=rl;
+  var u = [r[1]*f[2]-r[2]*f[1], r[2]*f[0]-r[0]*f[2], r[0]*f[1]-r[1]*f[0]];
+  var cr = Math.cos(roll), sr = Math.sin(roll);
+  return [u[0]*cr + r[0]*sr, u[1]*cr + r[1]*sr, u[2]*cr + r[2]*sr];
+}
+
+/* ------------------------------------------------------------------- loop -- */
+var last = 0, frameNo = 0, vp = m4(), view = m4(), tmpP = [0,0,0], tmpQ = [0,0,0], sp = [0,0,0], sp2 = [0,0,0];
+var fovNow = VIEWS[0].fov, camUpNow = VIEWS[0].camUp, camBackNow = VIEWS[0].camBack;
+
+function frame(t) {
+  requestAnimationFrame(frame);
+  var dt = Math.min(0.05, last ? (t - last) / 1000 : 0.016);
+  last = t;
+  R.resize();
+
+  var v = VIEWS[viewIdx];
+  var running = G.state === "run";
+
+  /* -------- simulation -------- */
+  if (running) {
+    G.time += dt;
+    var speed = G.stepDur * (keys["Shift"] || keys["shift"] ? 0.66 : 1);
+    G.stepProg += dt / speed;
+    doTurn();
+    if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
+    if (G.ghostT > 0) { G.ghostT -= dt; if (G.ghostT <= 0) { G.phasing = false; toast("solid again", "#7dffb0"); } }
+    G.phasing = G.ghostT > 0;
+    while (G.stepProg >= 1 && G.state === "run") {
+      G.stepProg -= 1;
+      if (step()) break;
+      doTurn();
+      if (G.state !== "run") break;
+    }
+  } else {
+    G.time += dt * 0.25;
+    G.stepProg = Math.min(1, G.stepProg + dt * 0.4);
+  }
+  if (G.state === "dead") G.dieT += dt;
+
+  /* continuous steering while a key is held */
+  if (running) {
+    var turnHeld = 0;
+    if (keys["ArrowLeft"] || keys["a"] || keys["A"]) turnHeld = -1;
+    else if (keys["ArrowRight"] || keys["d"] || keys["D"]) turnHeld = 1;
+    if (turnHeld) {
+      var d = G.targetYaw - G.headYaw;
+      if (d * turnHeld < 0.55) {
+        var want = headingOf(-G.dir[1] * turnHeld, G.dir[0] * turnHeld);
+        G.targetYaw += angDiff(G.targetYaw, want) * Math.min(1, dt * 7);
+      }
+    }
+  }
+
+  /* smooth the view heading toward the target */
+  var dy = angDiff(G.headYaw, G.targetYaw + G.yawOff);
+  var rate = clamp(Math.abs(dy) * mode().accel + 3.4, 0, 17);
+  var stepYaw = clamp(dy, -rate * dt, rate * dt);
+  G.headYaw += stepYaw;
+  G.turnRate = smax(G.turnRate * 0.86, stepYaw / Math.max(dt, 0.0001) * 0.055, 0.5);
+  // bank into the turn: a right turn drops the inner (right) wing, so the roll
+  // is the negative of the yaw delta, and it decays over ~4 frames rather than
+  // being smoothed away instantly
+  G.bank = smax(G.bank, clamp(-stepYaw * 2.4, -0.5, 0.5), 0.55);
+  G.bank *= Math.pow(0.22, dt);
+  G.headYaw = G.headYaw % (Math.PI * 2);
+
+  /* look recentring */
+  if (G.lookT > 0) { G.lookT -= dt; if (G.lookT <= 0) { G.yawOff = 0; G.pitchOff = 0; } }
+
+  var munchEase = 1 - Math.pow(0.0002, dt);
+  G.munch *= 1 - munchEase * 0.9;
+  G.flashT = Math.max(0, G.flashT - dt * 3.4);
+  G.shake = Math.max(0, G.shake - dt * 0.55);
+
+  /* -------- snake spine -------- */
+  var trail = G.trail;
+  var n = trail.length;
+  if (n >= 1) {
+    // Glide: the head is drawn continuously between the cell it just left and
+    // the cell it occupies, instead of snapping to each centre. At prog=0 it
+    // sits one cell behind the true head, at prog=1 exactly on it, and the next
+    // step resumes from there — so the motion never jumps.
+    var k = clamp(G.stepProg, 0, 1);
+    var a = trail[0], b = G.prevHead || trail[0];
+    sp[0] = b[0] + (a[0] - b[0]) * k;
+    sp[1] = 0;
+    sp[2] = b[2] + (a[2] - b[2]) * k;
+  } else { sp[0] = 0; sp[1] = 0; sp[2] = 0; }
+
+  // build a smooth polyline: [head] + trail + [tail mirrored]
+  var ctrl = [sp];
+  for (var i2 = 0; i2 < n; i2++) ctrl.push(trail[i2]);
+  if (n >= 2) {
+    var t0 = trail[n-1], t1 = trail[n-2];
+    ctrl.push([t0[0]*2 - t1[0], 0, t0[2]*2 - t1[2]]);
+  } else ctrl.push([sp[0], 0, sp[2] + 1]);
+
+  var SAMPLE = 220, samples = [];
+  var segs = ctrl.length - 1;
+  for (var s = 0; s < segs; s++) {
+    var p0 = ctrl[Math.max(0, s - 1)], p1 = ctrl[s], p2 = ctrl[s + 1], p3 = ctrl[Math.min(segs, s + 2)];
+    var sub = Math.max(2, Math.round(8 / Math.max(0.001, Math.hypot(p2[0]-p1[0], p2[2]-p1[2]))));
+    for (var q = 0; q < sub; q++) {
+      catmull(p0, p1, p2, p3, q / sub, tmpP);
+      samples.push([tmpP[0], tmpP[1], tmpP[2]]);
+      if (samples.length > SAMPLE) break;
+    }
+    if (samples.length > SAMPLE) break;
+  }
+  samples.push([ctrl[segs][0], 0, ctrl[segs][2]]);
+
+  // arc-length walk from the head
+  var cum = [0];
+  for (var c2 = 1; c2 < samples.length; c2++) {
+    cum[c2] = cum[c2-1] + Math.hypot(samples[c2][0]-samples[c2-1][0], samples[c2][2]-samples[c2-1][2]);
+  }
+  var total = cum[cum.length-1] || 1;
+  var spacing = 0.30;
+  var bodyLen = Math.max(0.55, (G.snakeLen - 0.6) * CELL);
+  var count = Math.max(3, Math.min(190, Math.round(bodyLen / spacing)));
+
+  var j = 0;
+  for (var b2 = 0; b2 < count; b2++) {
+    var want = (b2 + 1) * spacing + 0.30;    // start just behind the head mesh
+    if (want > total) want = total;
+    while (j < cum.length - 2 && cum[j + 1] < want) j++;
+    var t01 = (want - cum[j]) / Math.max(0.0001, cum[j + 1] - cum[j]);
+    var pa = samples[j], pb = samples[j + 1];
+    tmpQ[0] = pa[0] + (pb[0]-pa[0]) * t01;
+    tmpQ[1] = 0;
+    tmpQ[2] = pa[2] + (pb[2]-pa[2]) * t01;
+    var dirR = Math.atan2(pb[0]-pa[0], -(pb[2]-pa[2]));
+    var frac = b2 / Math.max(1, count - 1);
+    var taper = 0.345 - 0.245 * Math.pow(frac, 1.35) - 0.055 * Math.pow(frac, 5);
+    var rr = Math.max(0.05, taper);
+    var Sg = getSeg(b2);
+    Sg.visible = true;
+    Sg.model = m4trs([tmpQ[0], rr * 0.42 + 0.055, tmpQ[2]], [0, dirR, 0], [rr, rr * 0.94, rr]);
+    // one flat colour shared by every segment
+    Sg.emisAmt = 0.10;
+    Sg.base[0] = SNAKE_RGB[0]; Sg.base[1] = SNAKE_RGB[1]; Sg.base[2] = SNAKE_RGB[2];
+    if (G.phasing) {
+      var pulseA = 0.30 + 0.16 * Math.sin(G.time * 14 - b2 * 0.6);
+      Sg.alpha = pulseA;
+      Sg.emis = PAL.cyan; Sg.emisAmt = 0.55;
+    } else {
+      Sg.alpha = 1; Sg.emis = PAL.emerald;
+    }
+  }
+  killSegs(count);
+
+  /* -------- head rig -------- */
+  var hYaw = G.headYaw, hRoll = (v.top ? 0 : G.bank * 0.9);
+  var pitchDown = v.pitch + G.pitchOff;
+  if (headParts) {
+    var hb = v.headBack, hu = v.headUp;
+    var fwd = camFwd(hYaw, 0);
+    var hp = [sp[0] + fwd[0] * hb, hu + Math.sin(G.time * 6) * 0.012 + G.stepProg * 0.0, sp[2] + fwd[2] * hb];
+    var sc = 0.265 * (1 + G.munch * 0.10);
+    headParts.skin.model = m4trs(hp, [0, hYaw, hRoll], [sc, sc * 0.95, sc]);
+    headParts.skin.alpha = G.phasing ? 0.45 + 0.15 * Math.sin(G.time * 14) : 1;
+    headParts.skin.emis = G.phasing ? PAL.cyan : PAL.emerald;
+    headParts.skin.emisAmt = G.phasing ? 0.7 : 0.22;
+    // jaw opens when munching
+    var open = 0.16 + G.munch * 0.5;
+    headParts.jaw.model = m4trs(
+      [hp[0] + fwd[0] * 0.10, hp[1] - 0.085 - G.munch * 0.05, hp[2] + fwd[2] * 0.10],
+      [open, hYaw, hRoll], [0.235, 0.15, 0.26]);
+    // eyes
+    var side = [Math.cos(hYaw), 0, Math.sin(hYaw)];
+    var ex = 0.185, ey = 0.075, ez = 0.055;
+    for (var e2 = 0; e2 < 2; e2++) {
+      var sgn = e2 === 0 ? 1 : -1;
+      var px = hp[0] + side[0]*ex*sgn + fwd[0]*ez;
+      var pz = hp[2] + side[2]*ex*sgn + fwd[2]*ez;
+      var eye = e2 === 0 ? headParts.eyeL : headParts.eyeR;
+      var pup = e2 === 0 ? headParts.pupL : headParts.pupR;
+      var blink = (Math.sin(G.time * 1.7) > 0.985) ? 0.25 : 1;
+      eye.model = m4trs([px, hp[1] + ey, pz], [0, hYaw, hRoll], [0.072, 0.072*blink, 0.072]);
+      pup.model = m4trs([px + fwd[0]*0.055, hp[1] + ey, pz + fwd[2]*0.055], [0, hYaw, hRoll], [0.032, 0.032*blink, 0.018]);
+    }
+    // tongue flick
+    var flick = Math.pow(Math.max(0, Math.sin(G.time * 2.1 + 1.0)), 12);
+    headParts.tongue.visible = flick > 0.02;
+    if (headParts.tongue.visible) {
+      var tl = 0.5 + flick * 1.5;
+      headParts.tongue.model = m4trs(
+        [hp[0] + fwd[0] * 0.30, hp[1] - 0.085, hp[2] + fwd[2] * 0.30],
+        [0, hYaw, hRoll], [0.36, 1, tl]);
+    }
+  }
+
+  /* -------- food -------- */
+  var liveLights = [];
+  /* head lamp — sells the first-person view */
+  var camP = camPosOf(v, sp, hYaw, pitchDown, G.bank);
+  if (!v.top) liveLights.push({ p: [camP[0], camP[1] + 0.05, camP[2]], c: [0.55, 1.0, 0.75], r: 1.5 });
+  else liveLights.push({ p: [0, 5.5, 0], c: [0.62, 0.78, 0.70], r: 2.2 });
+
+  var foodAlive = {};
+  for (var fi = G.food.length - 1; fi >= 0; fi--) {
+    var f2 = G.food[fi];
+    f2.age += dt;
+    if (f2.ttl !== Infinity && f2.age > f2.ttl) { G.food.splice(fi, 1); ensureFood(); continue; }
+    foodAlive[f2.id] = true;
+    var inst = foodInsts[f2.id];
+    if (!inst) { inst = makeFoodInst(); foodInsts[f2.id] = inst; }
+    var w2 = worldOf(f2.c[0], f2.c[1]);
+    var bob = 0.42 + Math.sin(G.time * 2.2 + f2.phase) * 0.07;
+    var pulse = 0.86 + Math.sin(G.time * 4 + f2.phase) * 0.14;
+    var dying = f2.ttl !== Infinity ? clamp((f2.ttl - f2.age) / 2.2, 0, 1) : 1;
+    var flick2 = f2.ttl !== Infinity ? (0.75 + 0.25 * Math.sin(G.time * 22)) : 1;
+    var col = f2.type === "gold" ? PAL.amber : (f2.type === "ghost" ? PAL.cyan : PAL.poison);
+    var alpha = (f2.type === "ghost" ? 0.55 : 1) * dying * flick2;
+
+    inst.orb.visible = true;
+    inst.orb.base = [col[0]*0.25, col[1]*0.28, col[2]*0.25];
+    inst.orb.emis = col;
+    inst.orb.alpha = alpha;
+    var orbR = isTop ? 0.36 : 0.26;
+    inst.orb.model = m4trs([w2[0], bob, w2[2]], [0, G.time * (f2.type === "gold" ? 1.6 : 0.8), 0],
+      [orbR*pulse, orbR*pulse*1.08, orbR*pulse]);
+    inst.glow.emis = col;
+    inst.glow.alpha = 0.30 * alpha;
+    var glowR = isTop ? 0.92 : 0.62;
+    inst.glow.model = m4trs([w2[0], bob, w2[2]], [0,0,0], [glowR*pulse, glowR*pulse, glowR*pulse]);
+    inst.ring.emis = col;
+    inst.ring.alpha = 0.34 * alpha;
+    var ringR = isTop ? 0.62 : 0.5;
+    inst.ring.model = m4trs([w2[0], 0.014, w2[2]], [0, G.time * 0.9, 0], [ringR*pulse, 1, ringR*pulse]);
+    inst.light.p = [w2[0], bob + 0.1, w2[2]];
+    inst.light.c = [col[0]*0.8, col[1]*0.8, col[2]*0.8];
+    inst.light.r = (f2.type === "gold" ? 1.5 : 0.95) * pulse * dying;
+    if (liveLights.length < 4) liveLights.push(inst.light);
+  }
+  // retire pooled food visuals whose orb is gone: hide them and free the slot
+  // (a long run eats hundreds of orbs, so this pool must not grow forever)
+  var harvested = [], freed = [];
+  for (var key in foodInsts) {
+    if (!foodAlive[key]) harvested.push(key);
+  }
+  for (var hi = 0; hi < harvested.length; hi++) {
+    var hk = harvested[hi], li = foodInsts[hk];
+    li.orb.visible = false; li.glow.visible = false; li.ring.visible = false;
+    freed.push(li.orb, li.glow, li.ring);
+    delete foodInsts[hk];
+  }
+  // physically drop retired instances so the per-frame draw loop stays bounded
+  if (freed.length) {
+    R.instances = R.instances.filter(function (o) { return freed.indexOf(o) < 0; });
+  }
+
+  /* -------- pits -------- */
+  for (var pi = 0; pi < G.pits.length; pi++) {
+    var pit = G.pits[pi], pinst = getPit(pi);
+    var pw = worldOf(pit[0], pit[1]);
+    var throb = 0.85 + Math.sin(G.time * 3 + pi) * 0.15;
+    pinst.inner.visible = true; pinst.lip.visible = true; pinst.haze.visible = true;
+    pinst.inner.model = m4trs([pw[0], -0.5, pw[2]], [0,0,0], [isTop ? 0.47 : 0.44, 1, isTop ? 0.47 : 0.44]);
+    pinst.lip.emisAmt = 1.0 * throb;
+    pinst.lip.model = m4trs([pw[0], 0.014, pw[2]], [0, G.time * 0.7 + pi, 0], [0.56, 1, 0.56]);
+    pinst.haze.emisAmt = 0.7 * throb;
+    pinst.haze.model = m4trs([pw[0], 0.08 + Math.sin(G.time*2+pi)*0.02, pw[2]], [0,0,0], [0.4, 0.12, 0.4]);
+  }
+  for (var ppi = G.pits.length; ppi < pitInsts.length; ppi++) {
+    pitInsts[ppi].inner.visible = false; pitInsts[ppi].lip.visible = false; pitInsts[ppi].haze.visible = false;
+  }
+
+  /* -------- camera -------- */
+  var isTop = !!v.top;
+  fovNow = smax(fovNow, v.fov, 1 - Math.pow(0.001, dt));
+  camUpNow = smax(camUpNow, v.camUp, 1 - Math.pow(0.001, dt));
+  camBackNow = smax(camBackNow, v.camBack, 1 - Math.pow(0.001, dt));
+
+  var cf, cu, cpos;
+  if (isTop) {
+    // Locked overhead 2D board: north up, east right, no roll, no bob, no shake.
+    // With forward = -Y, up must be -Z for right = fwd x up to land on +X
+    // (east); the opposite sign mirrors the board and inverts left/right.
+    // Height is solved from the live aspect ratio so the board always fits,
+    // instead of assuming a wide monitor.
+    var halfFov = fovNow / 2;
+    var needV = (FLOOR / 2 + 1.4) / Math.tan(halfFov);
+    var needH = (FLOOR / 2 + 1.4) / (Math.tan(halfFov) * Math.max(0.5, R.aspect));
+    camUpNow = smax(camUpNow, Math.max(needV, needH), 1 - Math.pow(0.001, dt));
+    cpos = [0, camUpNow, 0];
+    cf = [0, -1, 0];
+    cu = [0, 0, -1];
+  } else {
+    var vAdj = { camBack: camBackNow, camUp: camUpNow, pitch: v.pitch, fov: fovNow, headBack: v.headBack, headUp: v.headUp };
+    var pitch = v.pitch + G.pitchOff + (G.state === "dead" ? -0.20 * Math.min(1, G.dieT * 2) : 0);
+    cpos = camPosOf(vAdj, sp, hYaw, pitch, G.bank);
+    // idle breathing + speed bob
+    var bobAmt = (G.state === "run") ? 0.014 : 0.006;
+    cpos[1] += Math.sin(G.time * 2.4) * bobAmt * 0.6 + Math.sin(G.stepProg * Math.PI) * bobAmt;
+    cpos[0] += Math.cos(hYaw) * Math.sin(G.stepProg * Math.PI * 2) * bobAmt * 0.7;
+    cpos[2] += Math.sin(hYaw) * Math.sin(G.stepProg * Math.PI * 2) * bobAmt * 0.7;
+    if (G.shake > 0) {
+      cpos[0] += (Math.random() - 0.5) * G.shake;
+      cpos[1] += (Math.random() - 0.5) * G.shake;
+      cpos[2] += (Math.random() - 0.5) * G.shake;
+    }
+    cf = camFwd(hYaw, pitch);
+    cu = camUpVec(hYaw, pitch, G.bank * 0.8);
+  }
+  view = m4look(cpos, cf, cu, view);
+  vp = m4mul(m4persp(fovNow, R.aspect, isTop ? 1 : 0.03, isTop ? 90 : 140), view, vp);
+  cam = { pos: cpos, fwd: cf, up: cu };
+
+  /* -------- spicy feedback -------- */
+  R.glow = 1 + G.flashT * 0.10;
+  // from 23 m up, exponential fog would swamp the board: keep the top view clear
+  R.fog = isTop ? 0.004 : 0.048 - G.flashT * 0.006;
+
+  R.setLights(liveLights);
+  try {
+    R.render(cam, vp, dt);
+  } catch (err) {
+    if (!window.__renderFailed) {
+      window.__renderFailed = true;
+      __serpentBang("render failed on frame " + frameNo + ": " + (err && err.message ? err.message : err));
+    }
+  }
+  frameNo++;
+  if (frameNo % 15 === 1) {
+    var d = document.getElementById("diag");
+    if (d) {
+      d.className = "on";
+      var head = "SERPENT v3 · 3D ok · " + VIEWS[viewIdx].name + " view · " + mode().label +
+                 " · " + G.state + " · score " + G.score + " · " + frameNo + " frames";
+      var st = R.stat || { tris: 0, drawn: 0, add: 0, particles: 0, glErr: 0 };
+      head += "\ndraws " + st.drawn + " (+" + st.add + " glow)  tris " + Math.round(st.tris) +
+              "  particles " + st.particles + "  glErr " + st.glErr;
+      if (window.__dshFullDiag) {
+        head += "\ncanvas " + canvas.width + "x" + canvas.height +
+                "  css " + canvas.clientWidth + "x" + canvas.clientHeight +
+                "  aspect " + R.aspect.toFixed(3) + "  dpr " + (window.devicePixelRatio || 1) +
+                "\ncam " + cpos.map(function (v) { return v.toFixed(1); }).join(",") +
+                "  fwd " + cf.map(function (v) { return v.toFixed(2); }).join(",") +
+                "  up " + cu.map(function (v) { return v.toFixed(2); }).join(",") +
+                "  fov " + fovNow.toFixed(2) +
+                "\nlen " + G.snakeLen + "  head " + ixOf(sp[0]) + "," + ixOf(sp[2]) +
+                "  food " + G.food.length + "  pits " + G.pits.length +
+                "  instances " + R.instances.length +
+                "\nview " + JSON.stringify(VIEWS[viewIdx]) +
+                "\nproj[0..3] " + Array.prototype.slice.call(vp, 0, 4).map(function (v) { return v.toFixed(2); }).join(",");
+      }
+      if (frameNo % 60 === 1) {
+        try {
+          var SW = 60, SH = 34, px = new Uint8Array(SW * SH * 4);
+          R.gl.readPixels(0, 0, SW, SH, R.gl.RGBA, R.gl.UNSIGNED_BYTE, px);
+          var lit = 0, sum = 0;
+          for (var pi = 0; pi < SW * SH; pi++) {
+            var v = px[pi * 4] + px[pi * 4 + 1] + px[pi * 4 + 2];
+            sum += v; if (v > 12) lit++;
+          }
+          window.__pixProbe = "lit " + lit + "/" + (SW * SH) + " avgRGB " + Math.round(sum / (SW * SH) / 3);
+        } catch (pe) { window.__pixProbe = "readPixels failed: " + pe.message; }
+      }
+      head += "\npixels: " + (window.__pixProbe || "sampling...") +
+              "\nerrors: " + (window.__serpentErrors.length ? window.__serpentErrors.join(" | ") : "none");
+      d.textContent = head;
+      if (__inFrame && (frameNo % 60 === 1)) {
+        try {
+          window.parent.postMessage({ serpent: "[serpent] " + head.replace(/\n/g, "\n          ") }, "*");
+        } catch (e) {}
+      }
+    }
+  }
+
+  /* combo readout */
+  if (G.combo > 1 && G.comboT > 0) el.combo.textContent = "COMBO x" + G.combo + "  " + G.comboT.toFixed(1) + "s";
+  else el.combo.innerHTML = "&nbsp;";
+}
+
+/* ------------------------------------------------------------------ boot -- */
+var INTRO_GRID = el.ovGrid.innerHTML;
+try { viewIdx = clamp(parseInt(localStorage.getItem("serpent.view") || "0", 10) || 0, 0, VIEWS.length - 1); } catch (e) {}
+newGame();
+setView(viewIdx);
+setMode(modeName);              // paints the mode labels (and re-seeds if needed)
+audio.muted = !!audio.muted;
+el.btnMute.classList.toggle("off", audio.muted);
+el.btnMute.textContent = audio.muted ? "Muted" : "Sound";
+if (window.__forceMode && MODES[window.__forceMode]) setMode(window.__forceMode);
+if (window.__forceEasy === false) setMode("normal");
+if (window.__forceTop === true) setView(0);
+else if (window.__forceTop === false) setView(1);
+showSheet("SERPENT", "Top-down 2D · or look through its eyes", INTRO_GRID, "Start crawling");
+__serpentReport("booted · webgl2 " + (R && R.gl ? "ok" : "MISSING") + " · view " + VIEWS[viewIdx].name +
+  " · mode " + modeName + " · canvas " + canvas.width + "x" + canvas.height +
+  " · diag " + (window.__dshFullDiag ? "on" : "off"));
+if (window.__autoStart) start();
+if (window.__dshFullDiag) { var dg = document.getElementById("diag"); if (dg) dg.className = "on"; }
+requestAnimationFrame(frame);
+
+/* tiny debug handle */
+window.__serpent = { G: function () { return G; }, R: R, VIEWS: VIEWS, showDead: showDead,
+  mode: function () { return modeName; }, setMode: setMode, setView: setView,
+  pools: function () { return { food: Object.keys(foodInsts).length, instances: R.instances.length }; } };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+# Key Step Productions — https://keystep.productions
+User-agent: *
+Allow: /
+
+Sitemap: https://keystep.productions/sitemap.xml

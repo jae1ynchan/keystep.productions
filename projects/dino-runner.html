@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Dino Run — offline jumping platformer</title>
+<style>
+  :root{
+    --bg:#f7f7f7; --ink:#535353; --dim:#9a9a9a; --gold:#e8b800;
+  }
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);overflow:hidden;
+    font-family:"Courier New",ui-monospace,monospace;color:var(--ink);
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+  body.night{--bg:#1c1c1c;--ink:#e6e6e6;--dim:#6d6d6d}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  #stage{position:relative;width:100%;height:100%;max-width:1100px;max-height:620px}
+  canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
+  #note{position:absolute;left:0;right:0;bottom:6px;text-align:center;font-size:11px;
+    letter-spacing:.14em;color:var(--dim);pointer-events:none}
+  #hint{position:absolute;left:0;right:0;top:8px;text-align:center;font-size:11px;letter-spacing:.18em;
+    color:var(--dim);pointer-events:none}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <canvas id="cv" width="900" height="260"></canvas>
+  <div id="hint">SPACE / &uarr; JUMP &nbsp;&middot;&nbsp; &darr; DUCK &nbsp;&middot;&nbsp; TAP ON MOBILE</div>
+  <div id="note">WORKS OFFLINE &nbsp;&middot;&nbsp; NO WIFI NEEDED &nbsp;&middot;&nbsp; HIGH SCORE SAVED IN THIS BROWSER</div>
+</div></div>
+<script>
+"use strict";
+/* ==========================================================================
+   DINO RUN - a self-contained Chrome-dino-style jumping platformer.
+   No external requests of any kind: no fonts, no images, no audio files.
+   Everything (pixel art included) is generated in this file, so it runs
+   perfectly with the wifi off.
+   ========================================================================== */
+
+/* ---------- canvas ---------- */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+const W = cv.width, H = cv.height;
+const GROUND_Y = 200;            // where the dino's feet rest
+const BASE = 0;                  // (px)
+
+/* ---------- tiny helpers ---------- */
+const clamp = (v,a,b) => v<a?a:(v>b?b:v);
+const rnd = (a,b) => a + Math.random()*(b-a);
+const rint = (a,b) => Math.floor(rnd(a,b+1));
+const pick = a => a[(Math.random()*a.length)|0];
+
+/* ---------- pixel font (7 rows tall) ---------- */
+const FONT = {
+  '0':['#####','#...#','#...#','#...#','#...#','#...#','#####'],
+  '1':['..#..','.##..','..#..','..#..','..#..','..#..','.###.'],
+  '2':['#####','....#','....#','#####','#....','#....','#####'],
+  '3':['#####','....#','....#','#####','....#','....#','#####'],
+  '4':['#...#','#...#','#...#','#####','....#','....#','....#'],
+  '5':['#####','#....','#....','#####','....#','....#','#####'],
+  '6':['#####','#....','#....','#####','#...#','#...#','#####'],
+  '7':['#####','....#','....#','....#','....#','....#','....#'],
+  '8':['#####','#...#','#...#','#####','#...#','#...#','#####'],
+  '9':['#####','#...#','#...#','#####','....#','....#','#####'],
+  'A':['..#..','.#.#.','#...#','#####','#...#','#...#','#...#'],
+  'B':['####.','#...#','#...#','####.','#...#','#...#','####.'],
+  'C':['.####','#....','#....','#....','#....','#....','.####'],
+  'D':['####.','#...#','#...#','#...#','#...#','#...#','####.'],
+  'E':['#####','#....','#....','####.','#....','#....','#####'],
+  'F':['#####','#....','#....','####.','#....','#....','#....'],
+  'G':['.####','#....','#....','#..##','#...#','#...#','.####'],
+  'H':['#...#','#...#','#...#','#####','#...#','#...#','#...#'],
+  'I':['#####','..#..','..#..','..#..','..#..','..#..','#####'],
+  'J':['....#','....#','....#','....#','#...#','#...#','.###.'],
+  'K':['#...#','#..#.','#.#..','##...','#.#..','#..#.','#...#'],
+  'L':['#....','#....','#....','#....','#....','#....','#####'],
+  'M':['#...#','##.##','#.#.#','#...#','#...#','#...#','#...#'],
+  'N':['#...#','##..#','#.#.#','#..##','#...#','#...#','#...#'],
+  'O':['.###.','#...#','#...#','#...#','#...#','#...#','.###.'],
+  'P':['####.','#...#','#...#','####.','#....','#....','#....'],
+  'Q':['.###.','#...#','#...#','#...#','#.#.#','#..#.','.##.#'],
+  'R':['####.','#...#','#...#','####.','#.#..','#..#.','#...#'],
+  'S':['.####','#....','#....','.###.','....#','....#','####.'],
+  'T':['#####','..#..','..#..','..#..','..#..','..#..','..#..'],
+  'U':['#...#','#...#','#...#','#...#','#...#','#...#','.###.'],
+  'V':['#...#','#...#','#...#','#...#','#...#','.#.#.','..#..'],
+  'W':['#...#','#...#','#...#','#.#.#','#.#.#','##.##','#...#'],
+  'X':['#...#','#...#','.#.#.','..#..','.#.#.','#...#','#...#'],
+  'Y':['#...#','#...#','.#.#.','..#..','..#..','..#..','..#..'],
+  'Z':['#####','....#','...#.','..#..','.#...','#....','#####'],
+  ' ':['.....','.....','.....','.....','.....','.....','.....'],
+  '+':['.....','..#..','..#..','#####','..#..','..#..','.....'],
+  '-':['.....','.....','.....','#####','.....','.....','.....'],
+  '.':['.....','.....','.....','.....','.....','..#..','..#..'],
+  ':':['.....','..#..','..#..','.....','..#..','..#..','.....'],
+  '!':['..#..','..#..','..#..','..#..','..#..','.....','..#..']
+};
+
+
+/* ---------- pixel sprite art (see .dino-build/sprite-preview.js) ---------- */
+const SPR = {
+  dino: {
+    stand: [
+      '..............#####...','.............#######..','.............########.','.............###.#####',
+      '.............#########','.............#########','.............####.....','.............######...',
+      '.#################....','##################....','###################...','##################....',
+      '.#################....','....##########........','.....########.........','.....########.........',
+      '.....########.........','.....###..###.........','.....###..###.........','.....###..###.........',
+      '.....###..###.........','.....###..###.........','.....###..###.........','.....###..###.........'
+    ],
+    runA: [
+      '..............#####...','.............#######..','.............########.','.............###.#####',
+      '.............#########','.............#########','.............####.....','.............######...',
+      '.#################....','##################....','###################...','##################....',
+      '.#################....','....##########........','.....########.........','.....########.........',
+      '.....########.........','.....########.........','.....###..............','.....###..............',
+      '.....###..............','.....####.............','......###.............','.......##.............'
+    ],
+    runB: [
+      '..............#####...','.............#######..','.............########.','.............###.#####',
+      '.............#########','.............#########','.............####.....','.............######...',
+      '.#################....','##################....','###################...','##################....',
+      '.#################....','....##########........','.....########.........','.....########.........',
+      '.....########.........','..........########....','..........###.........','..........###.........',
+      '..........###.........','..........####........','...........###........','............##........'
+    ],
+    dead: [
+      '..............#####...','.............#######..','.............########.','.............###.###..',
+      '.............#########','.............#########','.............####.....','.............######...',
+      '.#################....','##################....','###################...','##################....',
+      '.#################....','....##########........','.....########.........','.....########.........',
+      '.....########.........','.....###..####........','.....###...###........','.....###....###.......',
+      '.....###.....##.......','.....###..............','.....###..............','.....###..............'
+    ],
+    duck: [
+      '......................','......................','......................','......................',
+      '......................','......................','..............#####...','.............#######..',
+      '.............########.','.............###.#####','.............#########','.............#########',
+      '.............####.....','.#####################','######################','#####################.',
+      '.####################.','....####...####.......','....####...####.......','....####...####.......'
+    ]
+  },
+  cactusSmall: [
+    '..###..','..###..','..###..','#.###..','#.###.#','#.###.#','#####.#','..#####','..###..','..###..','..###..','..###..'
+  ],
+  cactusBig: [
+    '...####...','...####...','...####...','...####...','#..####...','#..####.#.','#..####.#.','#..####.#.',
+    '#######.#.','...#######','...####...','...####...','...####...','...####...','...####...'
+  ],
+  ptero: {
+    up: [
+      '..........####..............','.........######.............','........########............','.......##########...........',
+      '......############..........','.....##############.........','....################........','...##################.......',
+      '..####################......','##############.#############','...###################......','....#################.......',
+      '.....###############........','......#############.........','.......###########..........','........#########...........',
+      '.........#######............','..........#####.............'
+    ],
+    down: [
+      '............................','............................','............................','............................',
+      '............................','............................','............................','............................',
+      '..........####..............','##############.#############','..####################......','...##################.......',
+      '....################........','.....##############.........','......############..........','.......##########...........',
+      '........########............','.........######.............'
+    ]
+  },
+  cloud: [
+    '.....######.....','...##########...','..############..','.###############','################','.##############.','...##########...'
+  ],
+  moon: [
+    '..####..','.######.','########','########','########','########','.######.','..####..'
+  ],
+  star: ['#'],
+  coin: [
+    '.###.','#####','##.##','##.##','##.##','#####','.###.'
+  ]
+};
+
+// Bake each sprite once into an offscreen canvas. Drawing pixels individually
+// every frame would be thousands of fillRect calls; blitting is one drawImage.
+function bake(rows, color) {
+  const w = Math.max(...rows.map(r => r.length)), h = rows.length;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  g.fillStyle = color;
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < rows[y].length; x++)
+      if (rows[y][x] === '#') g.fillRect(x, y, 1, 1);
+  return c;
+}
+const SHEET = {};
+function bakeSheets() {
+  const ink = '#535353';
+  SHEET.dino = {
+    stand: bake(SPR.dino.stand, ink), runA: bake(SPR.dino.runA, ink),
+    runB: bake(SPR.dino.runB, ink), dead: bake(SPR.dino.dead, ink),
+    duck: bake(SPR.dino.duck, ink)
+  };
+  SHEET.cactusSmall = bake(SPR.cactusSmall, ink);
+  SHEET.cactusBig = bake(SPR.cactusBig, ink);
+  SHEET.pteroUp = bake(SPR.ptero.up, ink);
+  SHEET.pteroDown = bake(SPR.ptero.down, ink);
+  SHEET.cloud = bake(SPR.cloud, ink);
+  SHEET.coin = bake(SPR.coin, '#e8b800');
+  SHEET.moon = bake(SPR.moon, ink);
+}
+bakeSheets();
+// the night palette re-bakes the same art in light ink
+function rebakeForNight(night) {
+  const ink = night ? '#e6e6e6' : '#535353';
+  for (const k of ['stand','runA','runB','dead','duck'])
+    SHEET.dino[k] = bake(SPR.dino[k], ink);
+  SHEET.cactusSmall = bake(SPR.cactusSmall, ink);
+  SHEET.cactusBig   = bake(SPR.cactusBig, ink);
+  SHEET.pteroUp     = bake(SPR.ptero.up, ink);
+  SHEET.pteroDown   = bake(SPR.ptero.down, ink);
+  SHEET.cloud       = bake(SPR.cloud, ink);
+  SHEET.moon        = bake(SPR.moon, ink);
+}
+
+/* ---------- physics / tuning ---------- */
+const GRAV      = -0.95;     // px per frame^2
+const JUMP_V    = 13.2;      // initial jump velocity -> ~92px peak, 28 frames airborne
+const FAST_FALL = 1.7;       // multiplier while holding down in the air
+const SPEED_0   = 6.0;       // px per frame at the start
+const SPEED_MAX = 14.0;
+const ACCEL     = 0.0055;    // px per frame added per frame -> ~25s to top speed
+
+/* Hitboxes. The dino's art is 22x24 but the collision box is deliberately
+   smaller than the pixels so the game feels forgiving rather than cruel. */
+const DINO_W = 16, DINO_H = 21, DUCK_W = 22, DUCK_H = 14;
+
+const OBSTACLES = {
+  cactusSmall: { w: 7,  h: 12, source: () => SHEET.cactusSmall, group: [1,3] },
+  cactusBig:   { w: 10, h: 15, source: () => SHEET.cactusBig,   group: [1,2] },
+  // fly offsets are measured from the ground; the numbers are set against the
+  // real jump arc so every bird has a genuine counter:
+  //   58 -> clears a ducking dino, so you MUST duck
+  //   34 -> squarely in jump range
+  //   18 -> the easy one; duck under it or hop it
+  pteroHigh:   { w: 26, h: 12, source: () => animPtero(), group: [1], fly: 58 },
+  pteroLow:    { w: 26, h: 12, source: () => animPtero(), group: [1], fly: 18 },
+  pteroMid:    { w: 26, h: 12, source: () => animPtero(), group: [1], fly: 34 }
+};
+function animPtero() {
+  return (Math.floor(state.t / 8) % 2) ? SHEET.pteroUp : SHEET.pteroDown;
+}
+
+/* ---------- persistent score ---------- */
+const SAVE_KEY = 'dinoRun.save.v1';
+let save = { best: 0, bestCoins: 0, coins: 0, muted: false, runs: 0 };
+try {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (raw) {
+    const s = JSON.parse(raw);
+    save.best      = Math.max(0, Number(s.best) || 0);
+    save.bestCoins = Math.max(0, Number(s.bestCoins) || 0);
+    save.coins     = Math.max(0, Number(s.coins) || 0);
+    save.runs      = Math.max(0, Number(s.runs) || 0);
+    save.muted     = !!s.muted;
+  }
+} catch (e) { /* a corrupt save must never stop the game from starting */ }
+function persist() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
+}
+
+/* ---------- sound (generated, never loaded) ---------- */
+let actx = null;
+function audio() {
+  if (save.muted) return null;
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  } catch (e) { return null; }
+}
+function tone(freq, dur, type, vol, slideTo) {
+  const a = audio(); if (!a) return;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type || 'square';
+  o.frequency.setValueAtTime(freq, a.currentTime);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(30, slideTo), a.currentTime + dur);
+  g.gain.setValueAtTime(0.0001, a.currentTime);
+  g.gain.exponentialRampToValueAtTime(vol || 0.06, a.currentTime + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
+  o.connect(g); g.connect(a.destination);
+  o.start(); o.stop(a.currentTime + dur + 0.02);
+}
+const sfx = {
+  jump:  () => tone(420, 0.10, 'square', 0.05, 780),
+  land:  () => tone(180, 0.05, 'square', 0.03, 120),
+  coin:  () => { tone(1050, 0.06, 'square', 0.05); setTimeout(() => tone(1560, 0.10, 'square', 0.045), 55); },
+  point: () => tone(900, 0.10, 'square', 0.05, 1200),
+  die:   () => { tone(360, 0.10, 'square', 0.06, 200); setTimeout(() => tone(200, 0.22, 'square', 0.06, 90), 110); },
+  start: () => tone(600, 0.08, 'square', 0.04, 900)
+};
+
+/* ---------- game state ---------- */
+const state = {
+  phase: 'ready',       // ready | run | dead
+  t: 0,                 // frames
+  speed: SPEED_0,
+  dist: 0,              // world px travelled
+  score: 0, coins: 0,
+  night: false, nightFade: 0,
+  lastMilestone: 0,
+  shake: 0
+};
+const dino = {
+  x: 60, y: 0, vy: 0, onGround: true, ducking: false, blink: 0, runFrame: 0
+};
+let obstacles = [], clouds = [], coins = [], sparks = [], groundMarks = [];
+let spawnTimer = 0, cloudTimer = 0, coinTimer = 0;
+
+/* ---------- reset / start ---------- */
+function resetWorld() {
+  state.phase = 'ready'; state.t = 0; state.speed = SPEED_0; state.dist = 0;
+  state.score = 0; state.coins = 0; state.shake = 0; state.lastMilestone = 0;
+  dino.y = 0; dino.vy = 0; dino.onGround = true; dino.ducking = false; dino.blink = 0;
+  obstacles = []; coins = []; sparks = [];
+  clouds = [];
+  for (let i = 0; i < 4; i++) clouds.push({ x: rnd(0, W), y: rnd(30, 110), s: rnd(0.7, 1.3) });
+  spawnTimer = 55; cloudTimer = 120; coinTimer = 200;
+}
+function startRun() {
+  resetWorld();
+  state.phase = 'run';
+  sfx.start();
+}
+
+/* ---------- input ---------- */
+function jump() {
+  if (state.phase === 'ready') { startRun(); return; }
+  if (state.phase === 'dead') { startRun(); return; }
+  if (dino.onGround) {
+    dino.vy = JUMP_V;
+    dino.onGround = false;
+    dino.ducking = false;
+    sfx.jump();
+  }
+}
+function setDuck(on) {
+  if (state.phase !== 'run') return;
+  dino.ducking = on && dino.onGround;
+}
+const keys = {};
+document.addEventListener('keydown', e => {
+  const k = e.key;
+  if (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W' || k === 'Enter') {
+    e.preventDefault();
+    if (!keys.jump) { keys.jump = true; jump(); }
+  } else if (k === 'ArrowDown' || k === 's' || k === 'S') {
+    e.preventDefault();
+    keys.duck = true;
+    if (state.phase === 'run' && !dino.onGround) dino.vy = Math.min(dino.vy, -2);  // fast fall
+    setDuck(true);
+  } else if (k === 'm' || k === 'M') {
+    save.muted = !save.muted; persist();
+  } else if (k === 'r' || k === 'R') {
+    if (state.phase !== 'ready') startRun();
+  }
+});
+document.addEventListener('keyup', e => {
+  const k = e.key;
+  if (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W' || k === 'Enter') keys.jump = false;
+  if (k === 'ArrowDown' || k === 's' || k === 'S') { keys.duck = false; setDuck(false); }
+});
+// touch / click: tap top half = jump, hold bottom half = duck
+function pointer(e) {
+  const r = cv.getBoundingClientRect();
+  const p = e.touches ? e.touches[0] : e;
+  const y = (p.clientY - r.top) / r.height;
+  if (y > 0.66) { setDuck(true); } else { jump(); }
+}
+cv.addEventListener('touchstart', e => { e.preventDefault(); pointer(e); });
+cv.addEventListener('touchend',   e => { e.preventDefault(); setDuck(false); });
+cv.addEventListener('mousedown',  e => { e.preventDefault(); pointer(e); });
+cv.addEventListener('mouseup',    () => setDuck(false));
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; setDuck(false); });
+
+/* ---------- spawning ---------- */
+function spawnObstacle() {
+  const canFly = state.score > 260 && Math.random() < 0.22;   // birds arrive later
+  const kind = canFly
+    ? pick(['pteroHigh','pteroMid','pteroLow'])
+    : (Math.random() < 0.62 ? 'cactusSmall' : 'cactusBig');
+  const def = OBSTACLES[kind];
+
+  // a group of identical cacti side by side, like the original
+  const groupDef = OBSTACLES[kind];
+  let count = 1;
+  if (!groupDef.fly && Math.random() < 0.35) count = rint(groupDef.group[0], groupDef.group[1]);
+  const gap = kind === 'cactusSmall' ? 3 : 4;
+  const totalW = count * def.w + (count - 1) * gap;
+
+  const o = { kind, w: totalW, h: def.h, count, gap, x: W + 20, dead: false };
+  if (def.fly) o.yOff = def.fly;
+  obstacles.push(o);
+
+  // never make the next obstacle impossible: leave room to land and react
+  // A jump covers roughly jumpAir * speed pixels. If the next obstacle appears
+  // inside that window the player is still airborne and cannot react, so the
+  // gap is derived from the actual air distance plus a reaction margin.
+  const jumpAirFrames = 2 * JUMP_V / -GRAV;                 // ~28 frames
+  const airDistance   = jumpAirFrames * state.speed;
+  const minGap = airDistance + 70 + state.speed * 6;
+  spawnTimer = minGap + rnd(0, minGap * 0.7);
+}
+function spawnCloud() {
+  clouds.push({ x: W + 30, y: rnd(24, 120), s: rnd(0.7, 1.3) });
+  cloudTimer = rnd(160, 400);
+}
+function spawnCoinRun() {
+  const n = rint(3, 6);
+  // place the run at a height that rewards a jump: low (grab while running),
+  // mid (needs a jump), or high (needs a well timed jump)
+  const pickH = pick([10, 46, 74]);
+  const gap = 22;
+  for (let i = 0; i < n; i++) {
+    coins.push({ x: W + 30 + i * gap, y: pickH, got: false, t: Math.random() * 6 });
+  }
+  coinTimer = rnd(220, 460);
+}
+
+/* ---------- update ---------- */
+function update() {
+  state.t++;
+  if (state.shake > 0) state.shake *= 0.88;
+
+  if (state.phase === 'run') {
+    // ---- speed ramp
+    state.speed = Math.min(SPEED_MAX, state.speed + ACCEL);
+
+    // ---- dino physics
+    if (!dino.onGround) {
+      dino.vy += GRAV;
+      if (keys.duck) dino.vy += GRAV * (FAST_FALL - 1);   // hold down to drop fast
+      dino.y += dino.vy;
+      if (dino.y <= 0) {
+        dino.y = 0; dino.vy = 0; dino.onGround = true;
+        sfx.land();
+        for (let i = 0; i < 5; i++) sparks.push({ x: dino.x + 8, y: GROUND_Y, vx: rnd(-1.6, -0.2), vy: rnd(-1.2, -0.2), life: 16, t: 0 });
+      }
+    }
+    // ducking only counts on the ground
+    dino.ducking = dino.ducking && dino.onGround;
+
+    // ---- run animation
+    if (dino.onGround && !dino.ducking) {
+      dino.runFrame += state.speed * 0.028;
+    }
+    // occasional blink
+    if (dino.blink > 0) dino.blink--;
+    else if (Math.random() < 0.006) dino.blink = 9;
+
+    // ---- world scroll
+    const dx = state.speed;
+    state.dist += dx;
+    groundMarks.forEach(m => m.x -= dx);
+    obstacles.forEach(o => o.x -= dx);
+    coins.forEach(c => c.x -= dx);
+    clouds.forEach(c => { c.x -= dx * 0.32 + 0.12; });
+
+    // ---- score & milestones
+    const newScore = Math.floor(state.dist / 9);
+    if (newScore !== state.score) {
+      state.score = newScore;
+      if (state.score >= state.lastMilestone + 100) {
+        state.lastMilestone = Math.floor(state.score / 100) * 100;
+        sfx.point();
+      }
+    }
+    // day / night cycle every 700 points
+    const wantNight = Math.floor(state.score / 700) % 2 === 1;
+    if (wantNight !== state.night) {
+      state.night = wantNight;
+      rebakeForNight(state.night);
+      document.body.classList.toggle('night', state.night);
+    }
+
+    // ---- spawning
+    spawnTimer -= dx; if (spawnTimer <= 0) spawnObstacle();
+    cloudTimer -= dx; if (cloudTimer <= 0) spawnCloud();
+    coinTimer  -= dx; if (coinTimer  <= 0) spawnCoinRun();
+
+    // ---- cull
+    obstacles = obstacles.filter(o => o.x + o.w > -30);
+    clouds    = clouds.filter(c => c.x + 16 * c.s > -20);
+    coins     = coins.filter(c => c.x > -20 && !c.got);
+
+    // ---- collisions
+    for (const o of obstacles) {
+      if (o.dead) continue;
+      const box = dinoBox();
+      const oy = o.yOff ? GROUND_Y - o.yOff - o.h : GROUND_Y - o.h;
+      if (box.x < o.x + o.w && box.x + box.w > o.x &&
+          box.y < oy + o.h && box.y + box.h > oy) {
+        die(o);
+        break;
+      }
+    }
+    // ---- coin pickup
+    const db = dinoBox();
+    for (const c of coins) {
+      if (c.got) continue;
+      const cy = GROUND_Y - c.y - 7;
+      if (db.x < c.x + 6 && db.x + db.w > c.x && db.y < cy + 7 && db.y + db.h > cy) {
+        c.got = true;
+        state.coins++;
+        sfx.coin();
+        for (let i = 0; i < 6; i++) sparks.push({ x: c.x + 3, y: cy + 3, vx: rnd(-1.8, 1.8), vy: rnd(-2.4, -0.4), life: 20, t: 0, gold: true });
+      }
+    }
+  }
+
+  // particles always tick so the death puff finishes
+  sparks.forEach(p => { p.t++; p.x += p.vx; p.y += p.vy; p.vy += 0.08; });
+  sparks = sparks.filter(p => p.t < p.life);
+}
+
+function dinoBox() {
+  const duck = dino.ducking && dino.onGround;
+  const w = duck ? DUCK_W : DINO_W;
+  const h = duck ? DUCK_H : DINO_H;
+  return { x: dino.x + 3, y: GROUND_Y - dino.y - h, w, h };
+}
+
+function die(o) {
+  state.phase = 'dead';
+  state.shake = 1;
+  sfx.die();
+  for (let i = 0; i < 12; i++)
+    sparks.push({ x: dino.x + 8, y: GROUND_Y - dino.y - 10, vx: rnd(-3, 3), vy: rnd(-3.4, -0.6), life: 34, t: 0 });
+  const score = state.score;
+  if (score > save.best) save.best = score;
+  if (state.coins > save.bestCoins) save.bestCoins = state.coins;
+  save.coins += state.coins;
+  save.runs++;
+  persist();
+}
+
+/* ---------- render ---------- */
+function drawPixelText(text, x, y, size, align, color) {
+  // 7-row pixel font, drawn from a compact glyph table. Keeps the HUD in the
+  // same blocky style as the sprites without shipping a font file.
+  const G = FONT, scale = size / 7;
+  let total = 0;
+  for (const ch of text) total += ((G[ch] ? G[ch][0].length : 3) + 1) * scale;
+  let cx = align === 'right' ? x - total : align === 'center' ? x - total / 2 : x;
+  ctx.fillStyle = color || inkColor();
+  for (const ch of text) {
+    const gl = G[ch];
+    if (gl) {
+      for (let r = 0; r < gl.length; r++)
+        for (let c = 0; c < gl[r].length; c++)
+          if (gl[r][c] === '#') ctx.fillRect(Math.round(cx + c * scale), Math.round(y + r * scale), Math.ceil(scale), Math.ceil(scale));
+      cx += (gl[0].length + 1) * scale;
+    } else {
+      cx += 4 * scale;
+    }
+  }
+}
+function inkColor() { return state.night ? '#e6e6e6' : '#535353'; }
+function dimColor() { return state.night ? '#5a5a5a' : '#a8a8a8'; }
+
+function drawGround() {
+  const ink = inkColor();
+  ctx.fillStyle = ink;
+  // the classic pebbly line: a solid stroke with little bumps below it
+  ctx.fillRect(0, GROUND_Y, W, 1);
+  const seedMarks = groundMarks;
+  for (const m of seedMarks) {
+    ctx.fillRect(Math.round(m.x), GROUND_Y + m.y, m.w, 1);
+  }
+  // scroll the marks and recycle them
+  if (state.phase === 'run') {
+    for (const m of seedMarks) if (m.x + m.w < -10) { m.x += W + 40; m.y = rint(2, 8); m.w = rint(2, 9); }
+  }
+}
+
+function render() {
+  const bg = state.night ? '#1c1c1c' : '#f7f7f7';
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  if (state.shake > 0.02) {
+    ctx.translate(rnd(-1, 1) * 3 * state.shake, rnd(-1, 1) * 3 * state.shake);
+  }
+  const ink = inkColor();
+
+  // ---- sky: stars at night, clouds any time
+  if (state.night) {
+    ctx.globalAlpha = 0.85;
+    for (let i = 0; i < 26; i++) {
+      const sx = (i * 137.5 + (state.dist * 0.04)) % W;
+      const sy = 18 + ((i * 61) % 90);
+      ctx.fillStyle = ink;
+      ctx.fillRect(Math.round(sx), sy, 1, 1);
+    }
+    ctx.globalAlpha = 1;
+    // a moon that keeps pace with the scroll
+    const mx = (W * 0.78 - state.dist * 0.02) % (W + 80);
+    ctx.drawImage(SHEET.moon, Math.round(mx < -40 ? mx + W + 80 : mx), 26);
+  }
+  ctx.fillStyle = state.night ? '#3a3a3a' : '#c9c9c9';
+  for (const c of clouds) {
+    const w = 16 * c.s, h = 7 * c.s;
+    ctx.drawImage(SHEET.cloud, 0, 0, 16, 7, Math.round(c.x), Math.round(c.y), Math.round(w), Math.round(h));
+  }
+
+  // ---- ground
+  drawGround();
+
+  // ---- coins
+  for (const c of coins) {
+    if (c.got) continue;
+    const cy = GROUND_Y - c.y - 7 + Math.round(Math.sin(state.t * 0.12 + c.x * 0.05) * 1.5);
+    ctx.drawImage(SHEET.coin, Math.round(c.x), cy);
+  }
+
+  // ---- obstacles
+  for (const o of obstacles) {
+    const def = OBSTACLES[o.kind];
+    let img = def.source();
+    const oy = o.yOff ? GROUND_Y - o.yOff - o.h : GROUND_Y - o.h;
+    if (o.count > 1) {
+      for (let i = 0; i < o.count; i++) {
+        ctx.drawImage(img, 0, 0, def.w, def.h,
+          Math.round(o.x + i * (def.w + o.gap)), Math.round(GROUND_Y - def.h), def.w, def.h);
+      }
+    } else {
+      ctx.drawImage(img, 0, 0, def.w, def.h, Math.round(o.x), Math.round(oy), def.w, def.h);
+    }
+  }
+
+  // ---- particles
+  for (const p of sparks) {
+    const a = 1 - p.t / p.life;
+    ctx.globalAlpha = clamp(a, 0, 1);
+    ctx.fillStyle = p.gold ? '#e8b800' : ink;
+    ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2);
+  }
+  ctx.globalAlpha = 1;
+
+  // ---- dino
+  let frame;
+  if (state.phase === 'dead') frame = SHEET.dino.dead;
+  else if (dino.ducking && dino.onGround) frame = SHEET.dino.duck;
+  else if (!dino.onGround) frame = SHEET.dino.stand;
+  else if (state.phase === 'ready') frame = SHEET.dino.stand;
+  else frame = (Math.floor(dino.runFrame) % 2) ? SHEET.dino.runA : SHEET.dino.runB;
+
+  // blink: a one pixel light spot over the eye
+  const dx0 = Math.round(dino.x), dy0 = Math.round(GROUND_Y - dino.y - frame.height);
+  ctx.drawImage(frame, dx0, dy0);
+  if (dino.blink > 0 && state.phase !== 'dead') {
+    ctx.fillStyle = bg;
+    ctx.fillRect(dx0 + 17, dy0 + (dino.ducking ? 9 : 3), 1, 2);
+  }
+
+  // ---- HUD
+  const hi = state.score.toString().padStart(5, '0');
+  if (save.best > 0) {
+    drawPixelText('HI ' + save.best.toString().padStart(5, '0'), W - 16, 12, 14, 'right', dimColor());
+  }
+  drawPixelText(hi, W - 16, 32, 14, 'right', ink);
+  if (state.coins > 0 || state.phase === 'run') {
+    ctx.drawImage(SHEET.coin, W - 96, 36);
+    drawPixelText(String(state.coins), W - 84, 34, 14, 'left', ink);
+  }
+
+  // ---- ready / dead cards
+  if (state.phase === 'ready') {
+    drawPixelText('DINO RUN', W / 2, 54, 22, 'center', ink);
+    drawPixelText('PRESS SPACE OR TAP TO START', W / 2, 92, 12, 'center', dimColor());
+    drawPixelText('BEST ' + save.best + '   COINS ' + save.coins, W / 2, 112, 11, 'center', dimColor());
+  }
+  if (state.phase === 'dead') {
+    drawPixelText('G A M E   O V E R', W / 2, 44, 18, 'center', ink);
+    drawPixelText('SCORE ' + state.score + '     COINS +' + state.coins, W / 2, 74, 12, 'center', ink);
+    drawPixelText('BEST ' + save.best + '     BANK ' + save.coins, W / 2, 92, 12, 'center', dimColor());
+    drawPixelText('PRESS SPACE OR TAP TO RUN AGAIN', W / 2, 118, 11, 'center', dimColor());
+  }
+  if (save.muted) drawPixelText('MUTED', 16, 12, 10, 'left', dimColor());
+}
+
+/* ---------- ground texture ---------- */
+function seedGround() {
+  groundMarks = [];
+  for (let i = 0; i < 70; i++) {
+    groundMarks.push({ x: Math.random() * W, y: rint(2, 8), w: rint(2, 9) });
+  }
+}
+seedGround();
+
+/* ---------- main loop (fixed 60Hz steps) ---------- */
+let acc = 0, last = performance.now();
+function frame(now) {
+  let dt = now - last; last = now;
+  if (dt > 250) dt = 250;              // tab was hidden: do not fast-forward
+  acc += dt;
+  let guard = 0;
+  while (acc >= 1000 / 60 && guard++ < 6) { update(); acc -= 1000 / 60; }
+  render();
+  requestAnimationFrame(frame);
+}
+
+resetWorld();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
